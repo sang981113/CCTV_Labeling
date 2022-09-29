@@ -17,7 +17,8 @@ class LabelingMain(QMainWindow):
         super().__init__()
         self.folder_path = ""
         self.file_index = 0
-        self.width_scale = 960
+        self.width_scale = 940
+        self.test_num = 1
         self.initUI()
 
     def initUI(self):
@@ -28,7 +29,7 @@ class LabelingMain(QMainWindow):
         self.menubar = self.menuBar()
         self.menu_open = self.menubar.addMenu("파일")
         self.menu_open_folder = QAction("폴더 열기", self)
-        self.menu_open_folder.triggered.connect(lambda: self.initImageAndData(self.width_scale, self.getFolderPath()))
+        self.menu_open_folder.triggered.connect(lambda: self.initImageAndData(self.width_scale, self.getFolderPathByDir(), self.test_num))
         self.log_open = self.menubar.addMenu("로그")
         self.log_open_folder = QAction("로그 보기", self)
         self.menu_open.addAction(self.menu_open_folder)
@@ -74,6 +75,7 @@ class LabelingMain(QMainWindow):
             layout.addWidget(value_label, 0, 1, 1, 1)
             return groupbox
 
+        
         self.actual_people_count_value_label = QLabel()
         self.actual_people_count_groupbox = initJsonGroupBox(QLabel("실제 사람 수: "), self.actual_people_count_value_label)
         self.predict_people_count_value_label = QLabel()
@@ -117,39 +119,60 @@ class LabelingMain(QMainWindow):
         self.confusion_matrix_layout.setAlignment(QtCore.Qt.AlignCenter)
         self.top_text_data_layout.addLayout(self.confusion_matrix_layout)
 
+
         self.image_layout = QHBoxLayout()
+        self.actual_image_layout = QVBoxLayout()
+        self.actual_info_label = QLabel("Actual Image")
+        self.actual_info_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.actual_info_label.setStyleSheet("QLabel{font-size:20pt; font-weight:bold}")
+        self.actual_image_layout.addWidget(self.actual_info_label)
         self.actual_image_label = QLabel()
         self.actual_image_label.setPixmap(QtGui.QPixmap("screen.png").scaledToWidth(self.width_scale))
         self.actual_image_label.setMargin(3)
-        self.image_layout.addWidget(self.actual_image_label)
+        self.actual_image_layout.addWidget(self.actual_image_label)
+        self.image_layout.addLayout(self.actual_image_layout)
+
+        self.predict_image_layout = QVBoxLayout()
+        self.predict_info_label = QLabel("Predict Image")
+        self.predict_info_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.predict_info_label.setStyleSheet("QLabel{font-size:20pt; font-weight:bold}")
+        self.predict_image_layout.addWidget(self.predict_info_label)
         self.predict_image_label = QLabel()
         self.predict_image_label.setPixmap(QtGui.QPixmap("screen.png").scaledToWidth(self.width_scale))
         self.predict_image_label.setMargin(3)
-        self.image_layout.addWidget(self.predict_image_label)
+        self.predict_image_layout.addWidget(self.predict_image_label)
+        self.image_layout.addLayout(self.predict_image_layout)
         self.main_layout.addLayout(self.image_layout)
 
+        self.button_control_layout = QVBoxLayout()
+        self.prev_next_btn_layout = QHBoxLayout()
         self.prev_btn = QPushButton()
         self.prev_btn.setEnabled(False)
         self.prev_btn.setIcon(self.style().standardIcon(QStyle.SP_ArrowLeft))
         self.prev_btn.clicked.connect(lambda: self.prevBtnAction(self.width_scale, self.folder_path, self.file_index))
+        self.prev_next_btn_layout.addWidget(self.prev_btn)
 
         self.next_btn = QPushButton()
         self.next_btn.setEnabled(False)
         self.next_btn.setIcon(self.style().standardIcon(QStyle.SP_ArrowRight))
         self.next_btn.clicked.connect(lambda: self.nextBtnAction(self.width_scale, self.folder_path, self.file_index))
+        self.prev_next_btn_layout.addWidget(self.next_btn)
+        self.button_control_layout.addLayout(self.prev_next_btn_layout)
+        self.main_layout.addLayout(self.button_control_layout)
 
-        self.control_button_layout = QHBoxLayout()
-        self.control_button_layout.addWidget(self.prev_btn)
-        self.control_button_layout.addWidget(self.next_btn)
-        self.main_layout.addLayout(self.control_button_layout)
-
+        self.test_btn_layout = QHBoxLayout()
+        self.next_test_btn = QPushButton()
+        self.next_test_btn.setVisible(False)
+        self.next_test_btn.setIcon(self.style().standardIcon(QStyle.SP_DialogApplyButton))
+        self.next_test_btn.clicked.connect(lambda: self.nextTestBtnAction())
+        self.test_btn_layout.setAlignment(QtCore.Qt.AlignRight)
+        self.test_btn_layout.addWidget(self.next_test_btn)
+        self.button_control_layout.addLayout(self.test_btn_layout)
         self.main_layout.setAlignment(QtCore.Qt.AlignCenter)
         self.show()
 
-    """
-        사진폴더 열기 관련 기능
-    """
-    def getFolderPath(self):
+
+    def getFolderPathByDir(self):
         folder_path = str(QFileDialog.getExistingDirectory(self, "이미지 폴더 불러오기"))
         try: 
             file_list = os.listdir(folder_path)
@@ -163,8 +186,9 @@ class LabelingMain(QMainWindow):
         if len(self.file_name_list) == 0:
             return
         self.folder_path = folder_path
-        
+
         return folder_path
+
 
     def setConfusionMatrixValue(self):
         true_positive = 0
@@ -191,9 +215,12 @@ class LabelingMain(QMainWindow):
         self.false_positive_value_label.setText(str(false_positive))
         self.true_negative_value_label.setText(str(true_negative))
 
-    def initImageAndData(self, scale, folder_path):
+
+    def initImageAndData(self, scale, folder_path, test_num):
+        self.file_index = 0
         self.setImageAndData(scale, folder_path, 0)
         self.setConfusionMatrixValue()
+
 
     def setImageAndData(self, scale, folder_path, index):
         if folder_path == None:
@@ -202,39 +229,44 @@ class LabelingMain(QMainWindow):
         self.setScaledImage(scale, folder_path, index)
         self.setJsonData(index)
 
-    """
-        JSON 데이터 표시 관련 기능
-    """
+
     def setJsonData(self, index):
         with open('test_images/' + ACTUAL_OFFSET + '_' + self.file_name_list[index] + DATA_EXT_OFFSET) as f:
             actual_json = json.load(f)
         with open('test_images/' + PREDICT_OFFSET + '_' + self.file_name_list[index] + DATA_EXT_OFFSET) as f:
             predict_json = json.load(f)
 
-        self.actual_people_count_value_label.setText(str(actual_json['people']))
-        self.actual_dumping_yn_value_label.setText(str(actual_json['dumping_yn']))
-        self.predict_people_count_value_label.setText(str(predict_json['people']))
-        self.predict_dumping_yn_value_label.setText(str(predict_json['dumping_yn']))
+        self.actual_people_count_value_label.setText(str(actual_json['people'][0]))
+        self.actual_dumping_yn_value_label.setText(str(actual_json['dumping_yn'][0]))
+        self.predict_people_count_value_label.setText(str(predict_json['people'][0]))
+        self.predict_dumping_yn_value_label.setText(str(predict_json['dumping_yn'][0]))
 
-    """
-        이미지 표시 관련 기능
-    """
+
     def setScaledImage(self, scale, folder_path, index):
+        """
+            Keyword arguments:
+            scale: use for setImage scale with width
+            index: order of image
+        """
         self.setImage(scale, folder_path, index, False)
         self.setImage(scale, folder_path, index, True)
 
         if index == 0 and self.file_count > 1:
             self.prev_btn.setEnabled(False)
             self.next_btn.setEnabled(True)
+            self.next_test_btn.setVisible(False)
         elif index == 0 and self.file_count <= 1:
             self.prev_btn.setEnabled(False)
             self.next_btn.setEnabled(False)
+            self.next_test_btn.setVisible(False)
         elif index >= self.file_count - 1:
             self.prev_btn.setEnabled(True)
             self.next_btn.setEnabled(False)
+            self.next_test_btn.setVisible(True)
         else:
             self.prev_btn.setEnabled(True)
             self.next_btn.setEnabled(True)
+            self.next_test_btn.setVisible(False)
 
         self.lbl_folder_path.show()
         self.lbl_folder_path_value.setText(folder_path)
@@ -246,6 +278,7 @@ class LabelingMain(QMainWindow):
         self.lbl_index_value.setText(str(index+1))
         self.lbl_index_value.show()
         
+
     def setImage(self, scale, folder_path, index, isPredict):
         pixmap = QtGui.QPixmap(self.getFilePath(folder_path, index, isPredict))
         pixmap = pixmap.scaledToWidth(scale)
@@ -255,11 +288,13 @@ class LabelingMain(QMainWindow):
         else:
             self.actual_image_label.setPixmap(pixmap)
         
+
     def getFilePath(self, folder_path, index, isPredict):
         if isPredict:
             return folder_path + '/' + PREDICT_OFFSET + '_' + self.file_name_list[index] + IMAGE_EXT_OFFSET
         else:
             return folder_path + '/' + ACTUAL_OFFSET + '_' + self.file_name_list[index] + IMAGE_EXT_OFFSET
+
 
     def getMatchedImageList(self, predict_file_name_list, actual_file_name_list):
         predict_name_list = []
@@ -270,7 +305,7 @@ class LabelingMain(QMainWindow):
         for file in actual_file_name_list:
             actual_name_list.append(file.split('_', maxsplit=1)[1])
 
-        return list(set(predict_name_list) & set(actual_name_list))
+        return sorted(list(set(predict_name_list) & set(actual_name_list)))
 
 
     def getFileNameList(self, isPredict, file_ext_offset, file_list):
@@ -292,6 +327,7 @@ class LabelingMain(QMainWindow):
 
         return file_name_list
 
+
     def getSameNameList(self, file_list1, file_list2):
         name_list1 = []
         name_list2 = []
@@ -304,15 +340,22 @@ class LabelingMain(QMainWindow):
             file_name, _ = os.path.splitext(file)
             name_list2.append(file_name)
         
-        return list(set(name_list1) & set(name_list2))
+        return sorted(list(set(name_list1) & set(name_list2)))
+
 
     def prevBtnAction(self, scale, folder_path, index):
         self.setImageAndData(scale, folder_path, index-1)
         self.file_index = index - 1
 
+
     def nextBtnAction(self, scale, folder_path, index):
         self.setImageAndData(scale, folder_path, index+1)
         self.file_index = index + 1
+
+
+    def nextTestBtnAction(self):
+        self.test_num += 1
+        self.initImageAndData(self.width_scale, self.folder_path, self.test_num)
 
 
 if __name__ == '__main__':
