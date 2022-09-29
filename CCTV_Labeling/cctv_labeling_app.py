@@ -1,4 +1,3 @@
-from bdb import checkfuncname
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import *
 
@@ -29,7 +28,7 @@ class LabelingMain(QMainWindow):
         self.menubar = self.menuBar()
         self.menu_open = self.menubar.addMenu("파일")
         self.menu_open_folder = QAction("폴더 열기", self)
-        self.menu_open_folder.triggered.connect(lambda: self.setImagesAndDatas((self.width_scale), self.getFolderPathByOpenDir(), 0))
+        self.menu_open_folder.triggered.connect(lambda: self.initImageAndData(self.width_scale, self.getFolderPath()))
         self.log_open = self.menubar.addMenu("로그")
         self.log_open_folder = QAction("로그 보기", self)
         self.menu_open.addAction(self.menu_open_folder)
@@ -63,48 +62,58 @@ class LabelingMain(QMainWindow):
         self.main_layout.addLayout(self.top_text_data_layout)
 
         self.json_data_layout = QVBoxLayout()
-        self.actual_people_count_label = QLabel("실제 사람 수: ")
-        self.actual_people_count_label.setFont(QtGui.QFont('Arial', 20))
+
+        def initJsonGroupBox(text_label, value_label):
+            groupbox = QGroupBox()
+            groupbox.setStyleSheet("QGroupBox{border:1px solid black}")
+            layout = QGridLayout()
+            groupbox.setLayout(layout)
+            text_label.setStyleSheet("QLabel{font-size:15pt; font-weight:bold}")
+            value_label.setStyleSheet("QLabel{font-size:15pt; font-weight:bold}")
+            layout.addWidget(text_label, 0, 0, 1, 1)
+            layout.addWidget(value_label, 0, 1, 1, 1)
+            return groupbox
+
         self.actual_people_count_value_label = QLabel()
-        self.actual_dumping_yn_label = QLabel("실제 투기 여부: ")
-        self.actual_dumping_yn_label.setFont(QtGui.QFont('Arial', 20))
-        self.actual_dumping_yn_value_label = QLabel()
-        self.predict_people_count_label = QLabel("예측 사람 수: ")
-        self.predict_people_count_label.setFont(QtGui.QFont('Arial', 20))
+        self.actual_people_count_groupbox = initJsonGroupBox(QLabel("실제 사람 수: "), self.actual_people_count_value_label)
         self.predict_people_count_value_label = QLabel()
-        self.predict_dumping_yn_label = QLabel("예측 투기 여부: ")
-        self.predict_dumping_yn_label.setFont(QtGui.QFont('Arial', 20))
+        self.predict_people_count_groupbox = initJsonGroupBox(QLabel("예측 사람 수: "), self.predict_people_count_value_label)
+        self.actual_dumping_yn_value_label = QLabel()
+        self.actual_dumping_yn_groupbox = initJsonGroupBox(QLabel("실제 투기 여부: "), self.actual_dumping_yn_value_label)
         self.predict_dumping_yn_value_label = QLabel()
-        self.json_data_layout.addWidget(self.actual_people_count_label)
-        self.json_data_layout.addWidget(self.actual_people_count_value_label)
-        self.json_data_layout.addWidget(self.actual_dumping_yn_label)
-        self.json_data_layout.addWidget(self.actual_dumping_yn_value_label)
-        self.json_data_layout.addWidget(self.predict_people_count_label)
-        self.json_data_layout.addWidget(self.predict_people_count_value_label)
-        self.json_data_layout.addWidget(self.predict_dumping_yn_label)
-        self.json_data_layout.addWidget(self.predict_dumping_yn_value_label)
+        self.predict_dumping_yn_groupbox = initJsonGroupBox(QLabel("예측 투기 여부: "), self.predict_dumping_yn_value_label)
+
+        self.json_data_layout.addWidget(self.actual_people_count_groupbox)
+        self.json_data_layout.addWidget(self.predict_people_count_groupbox)
+        self.json_data_layout.addWidget(self.actual_dumping_yn_groupbox)
+        self.json_data_layout.addWidget(self.predict_dumping_yn_groupbox)
         self.json_data_layout.setAlignment(QtCore.Qt.AlignLeft)
         self.top_text_data_layout.addLayout(self.json_data_layout)
 
         self.confusion_matrix_layout = QGridLayout()
-        self.confusion_matrix_layout.rowStretch(0)
-        self.confusion_matrix_layout.columnStretch(0)
-        self.true_positive_label = QLabel('True Positive: ')
-        self.true_positive_label.setFont(QtGui.QFont('Arial', 20))
+        def initConfusionMatrixGroupBox(text_label, value_label):
+            groupbox = QGroupBox()
+            groupbox.setStyleSheet("QGroupBox{border:1px solid black}")
+            layout = QGridLayout()
+            groupbox.setLayout(layout)
+            text_label.setStyleSheet("QLabel{font-size:20pt; font:Arial}")
+            value_label.setStyleSheet("QLabel{font-size:20pt; font:Arial}")
+            layout.addWidget(text_label, 0, 0, 1, 1)
+            layout.addWidget(value_label, 0, 1, 1, 1)
+            return groupbox
+
         self.true_positive_value_label = QLabel()
-        self.false_negative_label = QLabel('False Negative: ')
-        self.false_negative_label.setFont(QtGui.QFont('Arial', 20))
+        self.true_positive_groupbox = initConfusionMatrixGroupBox(QLabel('True Positive: '), self.true_positive_value_label)
         self.false_negative_value_label = QLabel()
-        self.false_positive_label = QLabel('False Positive: ')
-        self.false_positive_label.setFont(QtGui.QFont('Arial', 20))
+        self.false_negative_groupbox = initConfusionMatrixGroupBox(QLabel('False Negative: '), self.false_negative_value_label)
         self.false_positive_value_label = QLabel()
-        self.true_negative_label = QLabel('True Negative: ')
-        self.true_negative_label.setFont(QtGui.QFont('Arial', 20))
+        self.false_positive_groupbox = initConfusionMatrixGroupBox(QLabel('False Positive: '), self.false_positive_value_label)
         self.true_negative_value_label = QLabel()
-        self.confusion_matrix_layout.addWidget(self.true_positive_label, 0, 0, 1, 1)
-        self.confusion_matrix_layout.addWidget(self.false_negative_label, 0, 1, 1, 1)
-        self.confusion_matrix_layout.addWidget(self.false_positive_label, 1, 0, 1, 1)
-        self.confusion_matrix_layout.addWidget(self.true_negative_label, 1, 1, 1, 1)
+        self.true_negative_groupbox = initConfusionMatrixGroupBox(QLabel('True Negative: '), self.true_negative_value_label)
+        self.confusion_matrix_layout.addWidget(self.true_positive_groupbox, 0, 0, 1, 1)
+        self.confusion_matrix_layout.addWidget(self.false_negative_groupbox, 0, 2, 1, 1)
+        self.confusion_matrix_layout.addWidget(self.false_positive_groupbox, 1, 0, 1, 1)
+        self.confusion_matrix_layout.addWidget(self.true_negative_groupbox, 1, 2, 1, 1)
         self.confusion_matrix_layout.setAlignment(QtCore.Qt.AlignCenter)
         self.top_text_data_layout.addLayout(self.confusion_matrix_layout)
 
@@ -140,7 +149,7 @@ class LabelingMain(QMainWindow):
     """
         사진폴더 열기 관련 기능
     """
-    def getFolderPathByOpenDir(self):
+    def getFolderPath(self):
         folder_path = str(QFileDialog.getExistingDirectory(self, "이미지 폴더 불러오기"))
         try: 
             file_list = os.listdir(folder_path)
@@ -153,20 +162,50 @@ class LabelingMain(QMainWindow):
         self.file_count = len(self.file_name_list)
         if len(self.file_name_list) == 0:
             return
-
+        self.folder_path = folder_path
+        
         return folder_path
 
-    def setImagesAndDatas(self, scale, folder_path, index):
+    def setConfusionMatrixValue(self):
+        true_positive = 0
+        false_negative = 0
+        false_positive = 0
+        true_negative = 0
+        for file_name in self.file_name_list:
+            with open('test_images/' + ACTUAL_OFFSET + '_' + file_name + DATA_EXT_OFFSET) as f:
+                actual_json = json.load(f)
+            with open('test_images/' + PREDICT_OFFSET + '_' + file_name + DATA_EXT_OFFSET) as f:
+                predict_json = json.load(f)
+            if actual_json['people'] == 0 and predict_json['people'] == 0:
+                true_negative += 1
+            elif actual_json['people'] == predict_json['people']:
+                true_positive += 1
+            elif actual_json['people'] > predict_json['people']:
+                false_negative += 1
+            elif actual_json['people'] < predict_json['people']:
+                false_positive += 1
+            else:
+                continue
+        self.true_positive_value_label.setText(str(true_positive))
+        self.false_negative_value_label.setText(str(false_negative))
+        self.false_positive_value_label.setText(str(false_positive))
+        self.true_negative_value_label.setText(str(true_negative))
+
+    def initImageAndData(self, scale, folder_path):
+        self.setImageAndData(scale, folder_path, 0)
+        self.setConfusionMatrixValue()
+
+    def setImageAndData(self, scale, folder_path, index):
         if folder_path == None:
             QMessageBox.warning(self, '알림', '사용할 수 없는 폴더입니다.')
             return
         self.setScaledImage(scale, folder_path, index)
-        self.setJsonData(folder_path, index)
+        self.setJsonData(index)
 
     """
         JSON 데이터 표시 관련 기능
     """
-    def setJsonData(self, folder_path, index):
+    def setJsonData(self, index):
         with open('test_images/' + ACTUAL_OFFSET + '_' + self.file_name_list[index] + DATA_EXT_OFFSET) as f:
             actual_json = json.load(f)
         with open('test_images/' + PREDICT_OFFSET + '_' + self.file_name_list[index] + DATA_EXT_OFFSET) as f:
@@ -206,7 +245,6 @@ class LabelingMain(QMainWindow):
         self.lbl_index.show()
         self.lbl_index_value.setText(str(index+1))
         self.lbl_index_value.show()
-        self.folder_path = folder_path
         
     def setImage(self, scale, folder_path, index, isPredict):
         pixmap = QtGui.QPixmap(self.getFilePath(folder_path, index, isPredict))
@@ -269,11 +307,11 @@ class LabelingMain(QMainWindow):
         return list(set(name_list1) & set(name_list2))
 
     def prevBtnAction(self, scale, folder_path, index):
-        self.setImagesAndDatas(scale, folder_path, index-1)
+        self.setImageAndData(scale, folder_path, index-1)
         self.file_index = index - 1
 
     def nextBtnAction(self, scale, folder_path, index):
-        self.setImagesAndDatas(scale, folder_path, index+1)
+        self.setImageAndData(scale, folder_path, index+1)
         self.file_index = index + 1
 
 
