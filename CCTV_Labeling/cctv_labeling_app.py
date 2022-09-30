@@ -10,6 +10,9 @@ ACTUAL_OFFSET = 'save'
 PREDICT_OFFSET = 'res'
 IMAGE_EXT_OFFSET = '.jpg'
 DATA_EXT_OFFSET = '.json'
+TEST_NAME_LIST = ['사람 검출 검출률(정밀도, precision)',
+                    '사람 검출 신뢰도(재현률, recall)',
+                    '투기행위 인식률(정확도, accuracy)']
 
 class LabelingMain(QMainWindow):
     
@@ -59,6 +62,11 @@ class LabelingMain(QMainWindow):
         self.setCentralWidget(self.main_groupbox)
         self.main_layout = QVBoxLayout(self.main_groupbox)
 
+        self.test_name_label = QLabel()
+        self.test_name_label.setStyleSheet("QLabel{font-size:20pt; font-weight:bold; padding:0px 0px 15px 0px}")
+        self.test_name_label.setVisible(False)
+        self.main_layout.addWidget(self.test_name_label)
+
         self.top_text_data_layout = QHBoxLayout()
         self.main_layout.addLayout(self.top_text_data_layout)
 
@@ -67,6 +75,7 @@ class LabelingMain(QMainWindow):
         def initJsonGroupBox(text_label, value_label):
             groupbox = QGroupBox()
             groupbox.setStyleSheet("QGroupBox{border:1px solid black}")
+            groupbox.setVisible(False)
             layout = QGridLayout()
             groupbox.setLayout(layout)
             text_label.setStyleSheet("QLabel{font-size:15pt; font-weight:bold}")
@@ -75,7 +84,6 @@ class LabelingMain(QMainWindow):
             layout.addWidget(value_label, 0, 1, 1, 1)
             return groupbox
 
-        
         self.actual_people_count_value_label = QLabel()
         self.actual_people_count_groupbox = initJsonGroupBox(QLabel("실제 사람 수: "), self.actual_people_count_value_label)
         self.predict_people_count_value_label = QLabel()
@@ -96,6 +104,7 @@ class LabelingMain(QMainWindow):
         def initConfusionMatrixGroupBox(text_label, value_label):
             groupbox = QGroupBox()
             groupbox.setStyleSheet("QGroupBox{border:1px solid black}")
+            groupbox.setVisible(False)
             layout = QGridLayout()
             groupbox.setLayout(layout)
             text_label.setStyleSheet("QLabel{font-size:20pt; font:Arial}")
@@ -124,7 +133,7 @@ class LabelingMain(QMainWindow):
         self.actual_image_layout = QVBoxLayout()
         self.actual_info_label = QLabel("Actual Image")
         self.actual_info_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.actual_info_label.setStyleSheet("QLabel{font-size:20pt; font-weight:bold}")
+        self.actual_info_label.setStyleSheet("QLabel{font-size:20pt; font-weight:bold; padding:10px 0px 10px 0px}")
         self.actual_image_layout.addWidget(self.actual_info_label)
         self.actual_image_label = QLabel()
         self.actual_image_label.setPixmap(QtGui.QPixmap("screen.png").scaledToWidth(self.width_scale))
@@ -135,7 +144,7 @@ class LabelingMain(QMainWindow):
         self.predict_image_layout = QVBoxLayout()
         self.predict_info_label = QLabel("Predict Image")
         self.predict_info_label.setAlignment(QtCore.Qt.AlignCenter)
-        self.predict_info_label.setStyleSheet("QLabel{font-size:20pt; font-weight:bold}")
+        self.predict_info_label.setStyleSheet("QLabel{font-size:20pt; font-weight:bold; padding:10px 0px 10px 0px}")
         self.predict_image_layout.addWidget(self.predict_info_label)
         self.predict_image_label = QLabel()
         self.predict_image_label.setPixmap(QtGui.QPixmap("screen.png").scaledToWidth(self.width_scale))
@@ -190,26 +199,43 @@ class LabelingMain(QMainWindow):
         return folder_path
 
 
-    def setConfusionMatrixValue(self):
+    def setConfusionMatrixValue(self, test_num):
         true_positive = 0
         false_negative = 0
         false_positive = 0
         true_negative = 0
-        for file_name in self.file_name_list:
-            with open('test_images/' + ACTUAL_OFFSET + '_' + file_name + DATA_EXT_OFFSET) as f:
-                actual_json = json.load(f)
-            with open('test_images/' + PREDICT_OFFSET + '_' + file_name + DATA_EXT_OFFSET) as f:
-                predict_json = json.load(f)
-            if actual_json['people'] == 0 and predict_json['people'] == 0:
-                true_negative += 1
-            elif actual_json['people'] == predict_json['people']:
-                true_positive += 1
-            elif actual_json['people'] > predict_json['people']:
-                false_negative += 1
-            elif actual_json['people'] < predict_json['people']:
-                false_positive += 1
-            else:
-                continue
+        if test_num == 1 or test_num == 2:
+            for file_name in self.file_name_list:
+                with open('test_images/' + ACTUAL_OFFSET + '_' + file_name + DATA_EXT_OFFSET) as f:
+                    actual_json = json.load(f)
+                with open('test_images/' + PREDICT_OFFSET + '_' + file_name + DATA_EXT_OFFSET) as f:
+                    predict_json = json.load(f)
+                if actual_json['people'] == 0 and predict_json['people'] == 0:
+                    true_negative += 1
+                elif actual_json['people'] == predict_json['people']:
+                    true_positive += 1
+                elif actual_json['people'] > predict_json['people']:
+                    false_negative += 1
+                elif actual_json['people'] < predict_json['people']:
+                    false_positive += 1
+                else:
+                    continue
+        elif test_num == 3:
+            for file_name in self.file_name_list:
+                with open('test_images/' + ACTUAL_OFFSET + '_' + file_name + DATA_EXT_OFFSET) as f:
+                    actual_json = json.load(f)
+                with open('test_images/' + PREDICT_OFFSET + '_' + file_name + DATA_EXT_OFFSET) as f:
+                    predict_json = json.load(f)
+                if actual_json['dumping_yn'][0] == 'Y' and predict_json['dumping_yn'][0] == 'Y':
+                    true_positive += 1
+                elif actual_json['dumping_yn'][0] == 'Y' and predict_json['dumping_yn'][0] == 'N':
+                    false_negative += 1
+                elif actual_json['dumping_yn'][0] == 'N' and predict_json['dumping_yn'][0] == 'Y':
+                    false_positive += 1
+                elif actual_json['dumping_yn'][0] == 'N' and predict_json['dumping_yn'][0] == 'N':
+                    true_negative += 1
+                else:
+                    continue
         self.true_positive_value_label.setText(str(true_positive))
         self.false_negative_value_label.setText(str(false_negative))
         self.false_positive_value_label.setText(str(false_positive))
@@ -217,9 +243,34 @@ class LabelingMain(QMainWindow):
 
 
     def initImageAndData(self, scale, folder_path, test_num):
+        if test_num == 1:
+            self.actual_people_count_groupbox.setVisible(True)
+            self.predict_people_count_groupbox.setVisible(True)
+            self.actual_dumping_yn_groupbox.setVisible(False)
+            self.predict_dumping_yn_groupbox.setVisible(False)
+        elif test_num == 2:
+            self.actual_people_count_groupbox.setVisible(True)
+            self.predict_people_count_groupbox.setVisible(True)
+            self.actual_dumping_yn_groupbox.setVisible(False)
+            self.predict_dumping_yn_groupbox.setVisible(False)
+        elif test_num == 3:
+            self.actual_people_count_groupbox.setVisible(False)
+            self.predict_people_count_groupbox.setVisible(False)
+            self.actual_dumping_yn_groupbox.setVisible(True)
+            self.predict_dumping_yn_groupbox.setVisible(True)
+        else:
+            QMessageBox.warning(self, '알림', '테스트를 완료하셨습니다.')
+            return
         self.file_index = 0
         self.setImageAndData(scale, folder_path, 0)
-        self.setConfusionMatrixValue()
+        self.setConfusionMatrixValue(test_num)
+        self.test_name_label.setVisible(True)
+        self.test_name_label.setText(str(test_num) + '. ' + TEST_NAME_LIST[test_num - 1])
+        self.true_positive_groupbox.setVisible(True)
+        self.false_negative_groupbox.setVisible(True)
+        self.false_positive_groupbox.setVisible(True)
+        self.true_negative_groupbox.setVisible(True)
+
 
 
     def setImageAndData(self, scale, folder_path, index):
