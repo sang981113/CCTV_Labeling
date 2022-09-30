@@ -17,6 +17,7 @@ DATA_EXT_OFFSET = '.json'
 TEST_NAME_LIST = ['사람 검출 검출률(precision)',
                     '사람 검출 신뢰도(recall)',
                     '투기행위 인식률(accuracy)']
+IMAGE_TYPE = ['ACTUAL', 'PREDICT', 'BOX']
 
 class LabelingMain(QMainWindow):
     
@@ -225,6 +226,110 @@ class LabelingMain(QMainWindow):
         self.folder_path = folder_path
 
 
+    def initImageAndData(self, scale, folder_path, test_num):
+        if test_num == 1:
+            self.actual_people_count_groupbox.setVisible(True)
+            self.predict_people_count_groupbox.setVisible(True)
+            self.actual_dumping_yn_groupbox.setVisible(False)
+            self.predict_dumping_yn_groupbox.setVisible(False)
+            self.precision_groupbox.setVisible(True)
+            self.recall_groupbox.setVisible(False)
+            self.accuracy_groupbox.setVisible(False)
+        elif test_num == 2:
+            self.actual_people_count_groupbox.setVisible(True)
+            self.predict_people_count_groupbox.setVisible(True)
+            self.actual_dumping_yn_groupbox.setVisible(False)
+            self.predict_dumping_yn_groupbox.setVisible(False)
+            self.precision_groupbox.setVisible(False)
+            self.recall_groupbox.setVisible(True)
+            self.accuracy_groupbox.setVisible(False)
+        elif test_num == 3:
+            self.actual_people_count_groupbox.setVisible(False)
+            self.predict_people_count_groupbox.setVisible(False)
+            self.actual_dumping_yn_groupbox.setVisible(True)
+            self.predict_dumping_yn_groupbox.setVisible(True)
+            self.precision_groupbox.setVisible(False)
+            self.recall_groupbox.setVisible(False)
+            self.accuracy_groupbox.setVisible(True)
+        else:
+            QMessageBox.warning(self, '알림', '테스트를 완료하셨습니다.')
+            return
+        self.file_index = 0
+        self.setImageAndData(scale, folder_path, 0, test_num)
+        self.test_name_label.setVisible(True)
+        self.test_name_label.setText(str(test_num) + '. ' + TEST_NAME_LIST[test_num - 1])
+        self.true_positive_groupbox.setVisible(True)
+        self.false_negative_groupbox.setVisible(True)
+        self.false_positive_groupbox.setVisible(True)
+        self.true_negative_groupbox.setVisible(True)
+        self.setFocus()
+
+
+
+    def setImageAndData(self, scale, folder_path, index, test_num):
+        if folder_path == None:
+            QMessageBox.warning(self, '알림', '사용할 수 없는 폴더입니다.')
+            return
+        self.setScaledImage(scale, folder_path, index, test_num)
+        self.setJsonData(folder_path, index)
+        self.setConfusionMatrixValue(folder_path, test_num)
+
+
+    def setJsonData(self, folder_path, index):
+        with open(self.getFilePath(folder_path , self.file_name_list[index], False, DATA_EXT_OFFSET)) as f:
+            actual_json = json.load(f)
+        with open(self.getFilePath(folder_path , self.file_name_list[index], True, DATA_EXT_OFFSET)) as f:
+            predict_json = json.load(f)
+
+        self.actual_people_count_value_label.setText(str(actual_json['people'][0]))
+        self.actual_dumping_yn_value_label.setText(str(actual_json['dumping_yn'][0]))
+        self.predict_people_count_value_label.setText(str(predict_json['people'][0]))
+        self.predict_dumping_yn_value_label.setText(str(predict_json['dumping_yn'][0]))
+
+
+    def setScaledImage(self, scale, folder_path, index, test_num):
+        """
+            Keyword arguments
+            scale: use for setImage scale with width
+            index: order of image
+        """
+        if test_num == 1 or test_num == 2:
+            self.setImage(QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], False, IMAGE_EXT_OFFSET)).scaledToWidth(scale))
+            self.setImage(QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], True, IMAGE_EXT_OFFSET)).scaledToWidth(scale))
+        elif test_num == 3:
+            self.setImage(QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], False, IMAGE_EXT_OFFSET)).scaledToWidth(scale))
+            self.setImage(QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], True, IMAGE_EXT_OFFSET)).scaledToWidth(scale))
+        else:
+            return
+
+        if index == 0 and len(self.file_name_list) > 1:
+            self.prev_btn.setEnabled(False)
+            self.next_btn.setEnabled(True)
+            self.next_test_btn.setVisible(False)
+        elif index == 0 and len(self.file_name_list) <= 1:
+            self.prev_btn.setEnabled(False)
+            self.next_btn.setEnabled(False)
+            self.next_test_btn.setVisible(False)
+        elif index >= len(self.file_name_list) - 1:
+            self.prev_btn.setEnabled(True)
+            self.next_btn.setEnabled(False)
+            self.next_test_btn.setVisible(True)
+        else:
+            self.prev_btn.setEnabled(True)
+            self.next_btn.setEnabled(True)
+            self.next_test_btn.setVisible(False)
+
+        self.lbl_folder_path.show()
+        self.lbl_folder_path_value.setText(folder_path)
+        self.lbl_folder_path_value.show()
+        self.lbl_file_name.show()
+        self.lbl_file_name_value.setText(self.getFileName(self.file_name_list[index], False, IMAGE_EXT_OFFSET) + ', ' + self.getFileName(self.file_name_list[index], True, IMAGE_EXT_OFFSET))
+        self.lbl_file_name_value.show()
+        self.lbl_index.show()
+        self.lbl_index_value.setText(str(index+1))
+        self.lbl_index_value.show()
+
+
     def setConfusionMatrixValue(self, folder_path, test_num):
         true_positive = 0
         false_negative = 0
@@ -280,112 +385,8 @@ class LabelingMain(QMainWindow):
             self.accuracy_value_label.setText(str(true_positive + true_negative) + '/' + str(true_positive + false_positive + false_negative + true_negative))
 
 
-    def initImageAndData(self, scale, folder_path, test_num):
-        if test_num == 1:
-            self.actual_people_count_groupbox.setVisible(True)
-            self.predict_people_count_groupbox.setVisible(True)
-            self.actual_dumping_yn_groupbox.setVisible(False)
-            self.predict_dumping_yn_groupbox.setVisible(False)
-            self.precision_groupbox.setVisible(True)
-            self.recall_groupbox.setVisible(False)
-            self.accuracy_groupbox.setVisible(False)
-        elif test_num == 2:
-            self.actual_people_count_groupbox.setVisible(True)
-            self.predict_people_count_groupbox.setVisible(True)
-            self.actual_dumping_yn_groupbox.setVisible(False)
-            self.predict_dumping_yn_groupbox.setVisible(False)
-            self.precision_groupbox.setVisible(False)
-            self.recall_groupbox.setVisible(True)
-            self.accuracy_groupbox.setVisible(False)
-        elif test_num == 3:
-            self.actual_people_count_groupbox.setVisible(False)
-            self.predict_people_count_groupbox.setVisible(False)
-            self.actual_dumping_yn_groupbox.setVisible(True)
-            self.predict_dumping_yn_groupbox.setVisible(True)
-            self.precision_groupbox.setVisible(False)
-            self.recall_groupbox.setVisible(False)
-            self.accuracy_groupbox.setVisible(True)
-        else:
-            QMessageBox.warning(self, '알림', '테스트를 완료하셨습니다.')
-            return
-        self.file_index = 0
-        self.setImageAndData(scale, folder_path, 0, test_num)
-        self.test_name_label.setVisible(True)
-        self.test_name_label.setText(str(test_num) + '. ' + TEST_NAME_LIST[test_num - 1])
-        self.true_positive_groupbox.setVisible(True)
-        self.false_negative_groupbox.setVisible(True)
-        self.false_positive_groupbox.setVisible(True)
-        self.true_negative_groupbox.setVisible(True)
-        self.setFocus()
-
-
-
-    def setImageAndData(self, scale, folder_path, index, test_num):
-        if folder_path == None:
-            QMessageBox.warning(self, '알림', '사용할 수 없는 폴더입니다.')
-            return
-        self.setScaledImage(scale, folder_path, index)
-        self.setJsonData(folder_path, index)
-        self.setConfusionMatrixValue(folder_path, test_num)
-
-
-    def setJsonData(self, folder_path, index):
-        with open(self.getFilePath(folder_path , self.file_name_list[index], False, DATA_EXT_OFFSET)) as f:
-            actual_json = json.load(f)
-        with open(self.getFilePath(folder_path , self.file_name_list[index], True, DATA_EXT_OFFSET)) as f:
-            predict_json = json.load(f)
-
-        self.actual_people_count_value_label.setText(str(actual_json['people'][0]))
-        self.actual_dumping_yn_value_label.setText(str(actual_json['dumping_yn'][0]))
-        self.predict_people_count_value_label.setText(str(predict_json['people'][0]))
-        self.predict_dumping_yn_value_label.setText(str(predict_json['dumping_yn'][0]))
-
-
-    def setScaledImage(self, scale, folder_path, index):
-        """
-            Keyword arguments
-            scale: use for setImage scale with width
-            index: order of image
-        """
-        self.setImage(scale, folder_path, index, False)
-        self.setImage(scale, folder_path, index, True)
-
-        if index == 0 and len(self.file_name_list) > 1:
-            self.prev_btn.setEnabled(False)
-            self.next_btn.setEnabled(True)
-            self.next_test_btn.setVisible(False)
-        elif index == 0 and len(self.file_name_list) <= 1:
-            self.prev_btn.setEnabled(False)
-            self.next_btn.setEnabled(False)
-            self.next_test_btn.setVisible(False)
-        elif index >= len(self.file_name_list) - 1:
-            self.prev_btn.setEnabled(True)
-            self.next_btn.setEnabled(False)
-            self.next_test_btn.setVisible(True)
-        else:
-            self.prev_btn.setEnabled(True)
-            self.next_btn.setEnabled(True)
-            self.next_test_btn.setVisible(False)
-
-        self.lbl_folder_path.show()
-        self.lbl_folder_path_value.setText(folder_path)
-        self.lbl_folder_path_value.show()
-        self.lbl_file_name.show()
-        self.lbl_file_name_value.setText(self.getFileName(self.file_name_list[index], False, IMAGE_EXT_OFFSET) + ', ' + self.getFileName(self.file_name_list[index], True, IMAGE_EXT_OFFSET))
-        self.lbl_file_name_value.show()
-        self.lbl_index.show()
-        self.lbl_index_value.setText(str(index+1))
-        self.lbl_index_value.show()
-        
-
-    def setImage(self, scale, folder_path, index, isPredict):
-        pixmap = QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], isPredict, IMAGE_EXT_OFFSET))
-        pixmap = pixmap.scaledToWidth(scale)
-
-        if isPredict:
-            self.predict_image_label.setPixmap(pixmap)
-        else:
-            self.actual_image_label.setPixmap(pixmap)
+    def setImage(self, pixmap):
+        self.predict_image_label.setPixmap(pixmap)
         
 
     def getFilePath(self, folder_path, file_name, isPredict, file_ext_offset):
@@ -420,10 +421,9 @@ class LabelingMain(QMainWindow):
                     continue
                 file_name_list.append(file_name)
             elif file_ext == file_ext_offset and isPredict:
-                if not file_name.startswith(PREDICT_OFFSET):
-                    continue
-                file_name_list.append(file_name)
-
+                if file_name.startswith(PREDICT_OFFSET):
+                    file_name_list.append(file_name)
+            
         return file_name_list
 
 
