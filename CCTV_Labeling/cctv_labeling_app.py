@@ -1,3 +1,4 @@
+from decimal import DivisionByZero
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import *
 
@@ -10,9 +11,9 @@ ACTUAL_OFFSET = 'save'
 PREDICT_OFFSET = 'res'
 IMAGE_EXT_OFFSET = '.jpg'
 DATA_EXT_OFFSET = '.json'
-TEST_NAME_LIST = ['사람 검출 검출률(정밀도, precision)',
-                    '사람 검출 신뢰도(재현률, recall)',
-                    '투기행위 인식률(정확도, accuracy)']
+TEST_NAME_LIST = ['사람 검출 검출률(precision)',
+                    '사람 검출 신뢰도(recall)',
+                    '투기행위 인식률(accuracy)']
 
 class LabelingMain(QMainWindow):
     
@@ -92,11 +93,20 @@ class LabelingMain(QMainWindow):
         self.actual_dumping_yn_groupbox = initJsonGroupBox(QLabel("실제 투기 여부: "), self.actual_dumping_yn_value_label)
         self.predict_dumping_yn_value_label = QLabel()
         self.predict_dumping_yn_groupbox = initJsonGroupBox(QLabel("예측 투기 여부: "), self.predict_dumping_yn_value_label)
+        self.precision_value_label = QLabel()
+        self.precision_groupbox = initJsonGroupBox(QLabel("Precision: "), self.precision_value_label)
+        self.recall_value_label = QLabel()
+        self.recall_groupbox = initJsonGroupBox(QLabel("Recall: "), self.recall_value_label)
+        self.accuracy_value_label = QLabel()
+        self.accuracy_groupbox = initJsonGroupBox(QLabel("Accuracy: "), self.accuracy_value_label)
 
         self.json_data_layout.addWidget(self.actual_people_count_groupbox)
         self.json_data_layout.addWidget(self.predict_people_count_groupbox)
         self.json_data_layout.addWidget(self.actual_dumping_yn_groupbox)
         self.json_data_layout.addWidget(self.predict_dumping_yn_groupbox)
+        self.json_data_layout.addWidget(self.precision_groupbox)
+        self.json_data_layout.addWidget(self.recall_groupbox)
+        self.json_data_layout.addWidget(self.accuracy_groupbox)
         self.json_data_layout.setAlignment(QtCore.Qt.AlignLeft)
         self.top_text_data_layout.addLayout(self.json_data_layout)
 
@@ -240,6 +250,18 @@ class LabelingMain(QMainWindow):
         self.false_negative_value_label.setText(str(false_negative))
         self.false_positive_value_label.setText(str(false_positive))
         self.true_negative_value_label.setText(str(true_negative))
+        try:
+            self.precision_value_label.setText(str(true_positive / (true_positive + false_positive)))
+        except ZeroDivisionError:
+            self.precision_value_label.setText(str(true_positive) + '/' + str(true_positive + false_positive))
+        try:
+            self.recall_value_label.setText(str(true_positive / (true_positive + false_negative)))
+        except ZeroDivisionError:
+            self.recall_value_label.setText(str(true_positive) + '/' + str(true_positive + false_negative))
+        try:
+            self.accuracy_value_label.setText(str((true_positive + true_negative) / (true_positive + false_positive + false_negative + true_negative)))
+        except ZeroDivisionError:
+            self.accuracy_value_label.setText(str(true_positive + true_negative) + '/' + str(true_positive + false_positive + false_negative + true_negative))
 
 
     def initImageAndData(self, scale, folder_path, test_num):
@@ -248,22 +270,31 @@ class LabelingMain(QMainWindow):
             self.predict_people_count_groupbox.setVisible(True)
             self.actual_dumping_yn_groupbox.setVisible(False)
             self.predict_dumping_yn_groupbox.setVisible(False)
+            self.precision_groupbox.setVisible(True)
+            self.recall_groupbox.setVisible(False)
+            self.accuracy_groupbox.setVisible(False)
         elif test_num == 2:
             self.actual_people_count_groupbox.setVisible(True)
             self.predict_people_count_groupbox.setVisible(True)
             self.actual_dumping_yn_groupbox.setVisible(False)
             self.predict_dumping_yn_groupbox.setVisible(False)
+            self.precision_groupbox.setVisible(False)
+            self.recall_groupbox.setVisible(True)
+            self.accuracy_groupbox.setVisible(False)
         elif test_num == 3:
             self.actual_people_count_groupbox.setVisible(False)
             self.predict_people_count_groupbox.setVisible(False)
             self.actual_dumping_yn_groupbox.setVisible(True)
             self.predict_dumping_yn_groupbox.setVisible(True)
+            self.precision_groupbox.setVisible(False)
+            self.recall_groupbox.setVisible(False)
+            self.accuracy_groupbox.setVisible(True)
         else:
             QMessageBox.warning(self, '알림', '테스트를 완료하셨습니다.')
             return
         self.file_index = 0
-        self.setImageAndData(scale, folder_path, 0)
         self.setConfusionMatrixValue(test_num)
+        self.setImageAndData(scale, folder_path, 0)
         self.test_name_label.setVisible(True)
         self.test_name_label.setText(str(test_num) + '. ' + TEST_NAME_LIST[test_num - 1])
         self.true_positive_groupbox.setVisible(True)
