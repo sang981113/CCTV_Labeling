@@ -16,6 +16,7 @@ PREDICT_OFFSET = 'res'
 FILE_SPLITER = '_'
 IMAGE_EXT_OFFSET = '.jpg'
 DATA_EXT_OFFSET = '.json'
+JSON_MODE = False
 TEST_NAME_LIST = ['사람 검출 검출률(precision)',
                     '사람 검출 신뢰도(recall)',
                     '투기행위 인식률(accuracy)']
@@ -225,8 +226,13 @@ class LabelingMain(QMainWindow):
             file_list = os.listdir(folder_path)
         except FileNotFoundError:
             return
-        predict_file_name_list = self.getSameNameList(self.getFileNameList(True, IMAGE_EXT_OFFSET, file_list), self.getFileNameList(True, DATA_EXT_OFFSET, file_list))
-        actual_file_name_list = self.getSameNameList(self.getFileNameList(False, IMAGE_EXT_OFFSET, file_list), self.getFileNameList(False, DATA_EXT_OFFSET, file_list))
+        # box_file_name_list = self.getFileNameList(ImageType.BOX, IMAGE_EXT_OFFSET, file_list)
+        if JSON_MODE == True:
+            actual_file_name_list = self.getSameNameList(self.getFileNameList(ImageType.ACTUAL, IMAGE_EXT_OFFSET, file_list), self.getFileNameList(ImageType.ACTUAL, DATA_EXT_OFFSET, file_list))
+            predict_file_name_list = self.getSameNameList(self.getFileNameList(ImageType.PREDICT, IMAGE_EXT_OFFSET, file_list), self.getFileNameList(ImageType.PREDICT, DATA_EXT_OFFSET, file_list))
+        else:
+            actual_file_name_list = self.getFileNameList(ImageType.ACTUAL, IMAGE_EXT_OFFSET, file_list)
+            predict_file_name_list = self.getFileNameList(ImageType.PREDICT, IMAGE_EXT_OFFSET, file_list)
         self.file_name_list = self.getMatchedImageList(predict_file_name_list, actual_file_name_list)
 
 
@@ -235,6 +241,12 @@ class LabelingMain(QMainWindow):
 
 
     def initImageAndData(self, scale, folder_path, test_num):
+        """
+            Keyword arguments
+            scale: use for setImage scale with width
+            folder_path: initial value or get from getFolderPathByDir
+            test_num: the index of test
+        """
         if test_num == 1:
             self.actual_people_count_groupbox.setVisible(True)
             self.predict_people_count_groupbox.setVisible(True)
@@ -262,6 +274,7 @@ class LabelingMain(QMainWindow):
         else:
             QMessageBox.warning(self, '알림', '테스트를 완료하셨습니다.')
             return
+
         self.file_index = 0
         self.setImageAndData(scale, folder_path, 0, test_num)
         self.test_name_label.setVisible(True)
@@ -270,6 +283,20 @@ class LabelingMain(QMainWindow):
         self.false_negative_groupbox.setVisible(True)
         self.false_positive_groupbox.setVisible(True)
         self.true_negative_groupbox.setVisible(True)
+
+        if JSON_MODE == False:
+            self.actual_people_count_groupbox.setVisible(False)
+            self.predict_people_count_groupbox.setVisible(False)
+            self.actual_dumping_yn_groupbox.setVisible(False)
+            self.predict_dumping_yn_groupbox.setVisible(False)
+            self.precision_groupbox.setVisible(False)
+            self.recall_groupbox.setVisible(False)
+            self.accuracy_groupbox.setVisible(False)
+            self.true_positive_groupbox.setVisible(False)
+            self.false_negative_groupbox.setVisible(False)
+            self.false_positive_groupbox.setVisible(False)
+            self.true_negative_groupbox.setVisible(False)
+
         self.setFocus()
 
 
@@ -279,20 +306,9 @@ class LabelingMain(QMainWindow):
             QMessageBox.warning(self, '알림', '사용할 수 없는 폴더입니다.')
             return
         self.setScaledImage(scale, folder_path, index, test_num)
-        self.setJsonData(folder_path, index)
-        self.setConfusionMatrixValue(folder_path, test_num)
-
-
-    def setJsonData(self, folder_path, index):
-        with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
-            actual_json = json.load(f)
-        with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.PREDICT, DATA_EXT_OFFSET)) as f:
-            predict_json = json.load(f)
-
-        self.actual_people_count_value_label.setText(str(actual_json['people'][0]))
-        self.actual_dumping_yn_value_label.setText(str(actual_json['dumping_yn'][0]))
-        self.predict_people_count_value_label.setText(str(predict_json['people'][0]))
-        self.predict_dumping_yn_value_label.setText(str(predict_json['dumping_yn'][0]))
+        if JSON_MODE == True:
+            self.setJsonData(folder_path, index)
+            self.setConfusionMatrixValue(folder_path, test_num)
 
 
     def setScaledImage(self, scale, folder_path, index, test_num):
@@ -340,6 +356,18 @@ class LabelingMain(QMainWindow):
         self.lbl_index.show()
         self.lbl_index_value.setText(str(index+1))
         self.lbl_index_value.show()
+
+
+    def setJsonData(self, folder_path, index):
+        with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
+            actual_json = json.load(f)
+        with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.PREDICT, DATA_EXT_OFFSET)) as f:
+            predict_json = json.load(f)
+
+        self.actual_people_count_value_label.setText(str(actual_json['people'][0]))
+        self.actual_dumping_yn_value_label.setText(str(actual_json['dumping_yn'][0]))
+        self.predict_people_count_value_label.setText(str(predict_json['people'][0]))
+        self.predict_dumping_yn_value_label.setText(str(predict_json['dumping_yn'][0]))
 
 
     def setConfusionMatrixValue(self, folder_path, test_num):
@@ -422,16 +450,19 @@ class LabelingMain(QMainWindow):
         return sorted(list(set(predict_name_list) & set(actual_name_list)))
 
 
-    def getFileNameList(self, isPredict, file_ext_offset, file_list):
+    def getFileNameList(self, image_type, file_ext_offset, file_list):
         file_name_list = []
         for file in file_list:
             file_name, file_ext = os.path.splitext(file)
-            if file_ext == file_ext_offset and not isPredict:
+            if file_ext == file_ext_offset and image_type == ImageType.ACTUAL:
                 if not file_name.startswith(ACTUAL_OFFSET):
                     continue
                 file_name_list.append(file_name)
-            elif file_ext == file_ext_offset and isPredict:
+            elif file_ext == file_ext_offset and image_type == ImageType.PREDICT:
                 if file_name.startswith(PREDICT_OFFSET):
+                    file_name_list.append(file_name)
+            elif file_ext == file_ext_offset and image_type == ImageType.BOX:
+                if file_name.startswith(BOX_OFFSET):
                     file_name_list.append(file_name)
             
         return file_name_list
