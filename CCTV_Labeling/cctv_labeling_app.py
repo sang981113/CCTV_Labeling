@@ -26,7 +26,7 @@ class ImageType(Enum):
     ACTUAL = 1
     BOX = 2
     PREDICT = 3
-
+    
 
 class LabelingMain(QMainWindow):
     def __init__(self):
@@ -194,10 +194,10 @@ class LabelingMain(QMainWindow):
         self.main_layout.addLayout(self.button_control_layout)
 
         self.test_btn_layout = QHBoxLayout()
-        self.next_test_btn = QPushButton()
+        self.next_test_btn = QPushButton('다음 테스트')
         self.next_test_btn.setVisible(False)
         self.next_test_btn.setIcon(self.style().standardIcon(QStyle.SP_DialogApplyButton))
-        self.next_test_btn.clicked.connect(lambda: self.nextTestBtnAction(self.width_scale, self.folder_path))
+        self.next_test_btn.clicked.connect(lambda: self.nextTestBtnAction(self.width_scale, self.folder_path, self.test_num))
         self.test_btn_layout.setAlignment(QtCore.Qt.AlignRight)
         self.test_btn_layout.addWidget(self.next_test_btn)
         self.button_control_layout.addLayout(self.test_btn_layout)
@@ -249,7 +249,6 @@ class LabelingMain(QMainWindow):
         if folder_path == None:
             QMessageBox.information(self, '알림', '표시할 수 있는 사진이 없습니다.')
             return
-        print(test_num)
         if test_num == 1:
             self.actual_people_count_groupbox.setVisible(True)
             self.predict_people_count_groupbox.setVisible(True)
@@ -308,11 +307,6 @@ class LabelingMain(QMainWindow):
         if test_num > len(TEST_NAME_LIST):
             return
 
-        self.setScaledImage(scale, folder_path, index, test_num)
-        if JSON_MODE == True:
-            self.setJsonData(folder_path, index)
-            self.setConfusionMatrixValue(folder_path, test_num)
-
         if index == 0 and len(self.file_name_list) > 1:
             self.prev_btn.setEnabled(False)
             self.next_btn.setEnabled(True)
@@ -321,14 +315,21 @@ class LabelingMain(QMainWindow):
             self.prev_btn.setEnabled(False)
             self.next_btn.setEnabled(False)
             self.next_test_btn.setVisible(False)
-        elif index >= len(self.file_name_list) - 1:
+        elif index == len(self.file_name_list) - 1:
             self.prev_btn.setEnabled(True)
             self.next_btn.setEnabled(False)
             self.next_test_btn.setVisible(True)
-        else:
+        elif index > 0 and index < len(self.file_name_list) - 1:
             self.prev_btn.setEnabled(True)
             self.next_btn.setEnabled(True)
             self.next_test_btn.setVisible(False)
+        else:
+            return
+
+        self.setScaledImage(scale, folder_path, index, test_num)
+        if JSON_MODE == True:
+            self.setJsonData(folder_path, index)
+            self.setConfusionMatrixValue(folder_path, test_num)
 
 
     def setScaledImage(self, scale, folder_path, index, test_num):
@@ -493,9 +494,9 @@ class LabelingMain(QMainWindow):
         self.setFocus()
 
 
-    def nextTestBtnAction(self, scale, folder_path):
-        self.test_num += 1
-        self.initImageAndData(scale, folder_path, self.test_num)
+    def nextTestBtnAction(self, scale, folder_path, test_num):
+        self.initImageAndData(scale, folder_path, test_num+1)
+        self.test_num = self.test_num + 1
         self.setFocus()
 
 
