@@ -18,9 +18,9 @@ FILE_SPLITER = '_'
 IMAGE_EXT_OFFSET = '.jpg'
 DATA_EXT_OFFSET = '.json'
 JSON_MODE = True
-TEST_NAME_LIST = ['사람 검출 검출률(precision)',
-                    '사람 검출 신뢰도(recall)',
-                    '투기행위 인식률(accuracy)']
+TEST_NAME_LIST = ['사람 검출 검출률(정밀도, precision)',
+                    '사람 검출 신뢰도(재현률, recall)',
+                    '투기행위 인식률(정확도, accuracy)']
 ACTUAL_COLOR = (0, 255, 0)
 
 
@@ -210,7 +210,7 @@ class LabelingMain(QMainWindow):
 
         self.folder_path = DIR_OFFSET
         self.file_name_list = self.getFileList(DIR_OFFSET)
-        if self.file_name_list != None or len(self.file_name_list) > 0: 
+        if len(self.file_name_list) > 0:
             self.initImageAndData(self.width_scale, DIR_OFFSET, self.test_num)
 
 
@@ -230,7 +230,7 @@ class LabelingMain(QMainWindow):
         try: 
             file_list = os.listdir(folder_path)
         except FileNotFoundError:
-            return
+            return []
 
         box_file_name_list = self.getFileNameList(ImageType.BOX, IMAGE_EXT_OFFSET, file_list)
 
@@ -252,8 +252,13 @@ class LabelingMain(QMainWindow):
             test_num: the index of test
         """
         if folder_path == None:
+            # if selected cancel in the getFolderPathByDir
+            return
+
+        if len(self.file_name_list) == 0:
             QMessageBox.information(self, '알림', '표시할 수 있는 사진이 없습니다.')
             return
+
         if test_num == 1:
             self.actual_people_count_groupbox.setVisible(True)
             self.predict_people_count_groupbox.setVisible(True)
