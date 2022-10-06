@@ -37,6 +37,8 @@ class LabelingMain(QMainWindow):
         self.test_num = 1
         self.file_name_list = []
         self.window_size = QtCore.QSize(1920, 1080)
+        self.default_pixmap = QtGui.QImage(1920, 1080, QtGui.QImage.Format_RGB888)
+        self.default_pixmap.fill(QtGui.qRgb(255, 255, 255))
         self.initUI()
 
     def initUI(self):
@@ -160,7 +162,7 @@ class LabelingMain(QMainWindow):
         self.actual_info_label.setStyleSheet("QLabel{font-size:20pt; font-weight:bold; padding:10px 0px 10px 0px}")
         self.actual_image_layout.addWidget(self.actual_info_label)
         self.actual_image_label = QLabel()
-        self.actual_image_label.setPixmap(QtGui.QPixmap("screen.png").scaledToWidth(self.width_scale))
+        self.actual_image_label.setPixmap(QtGui.QPixmap(self.default_pixmap).scaledToWidth(self.width_scale))
         self.actual_image_label.setMargin(3)
         self.actual_image_layout.addWidget(self.actual_image_label)
         self.image_layout.addLayout(self.actual_image_layout)
@@ -171,7 +173,7 @@ class LabelingMain(QMainWindow):
         self.predict_info_label.setStyleSheet("QLabel{font-size:20pt; font-weight:bold; padding:10px 0px 10px 0px}")
         self.predict_image_layout.addWidget(self.predict_info_label)
         self.predict_image_label = QLabel()
-        self.predict_image_label.setPixmap(QtGui.QPixmap("screen.png").scaledToWidth(self.width_scale))
+        self.predict_image_label.setPixmap(QtGui.QPixmap(self.default_pixmap).scaledToWidth(self.width_scale))
         self.predict_image_label.setMargin(3)
         self.predict_image_layout.addWidget(self.predict_image_label)
         self.image_layout.addLayout(self.predict_image_layout)
@@ -363,15 +365,20 @@ class LabelingMain(QMainWindow):
 
 
     def setJsonData(self, folder_path, index):
+        def getDumping_yn(json):
+            dumping_str = ''
+            for person in json['people']:
+                dumping_str = dumping_str + person['dumping_yn']
+            return dumping_str
         with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
             actual_json = json.load(f)
         with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.PREDICT, DATA_EXT_OFFSET)) as f:
             predict_json = json.load(f)
 
-        self.actual_people_count_value_label.setText(str(actual_json['people'][0]))
-        self.actual_dumping_yn_value_label.setText(str(actual_json['dumping_yn'][0]))
-        self.predict_people_count_value_label.setText(str(predict_json['people'][0]))
-        self.predict_dumping_yn_value_label.setText(str(predict_json['dumping_yn'][0]))
+        self.actual_people_count_value_label.setText(str(len(actual_json['people'])))
+        self.actual_dumping_yn_value_label.setText(str(getDumping_yn(actual_json)))
+        self.predict_people_count_value_label.setText(str(len(predict_json['people'])))
+        self.predict_dumping_yn_value_label.setText(str(getDumping_yn(predict_json)))
 
 
     def setConfusionMatrixValue(self, folder_path, test_num):
@@ -379,40 +386,81 @@ class LabelingMain(QMainWindow):
         false_negative = 0
         false_positive = 0
         true_negative = 0
+
+        def getIOU(box1, box2):
+            # box = (x1, y1, x2, y2)
+            box1_area = (box1[2] - box1[0] + 1) * (box1[3] - box1[1] + 1)
+            box2_area = (box2[2] - box2[0] + 1) * (box2[3] - box2[1] + 1)
+
+            # obtain x1, y1, x2, y2 of the intersection
+            x1 = max(box1[0], box2[0])
+            y1 = max(box1[1], box2[1])
+            x2 = min(box1[2], box2[2])
+            y2 = min(box1[3], box2[3])
+
+            # compute the width and height of the intersection
+            w = max(0, x2 - x1 + 1)
+            h = max(0, y2 - y1 + 1)
+
+            inter = w * h
+            iou = inter / (box1_area + box2_area - inter)
+            return iou
+
         if test_num == 1 or test_num == 2:
             for file_name in self.file_name_list:
                 with open(self.getFilePath(folder_path , file_name, ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
                     actual_json = json.load(f)
                 with open(self.getFilePath(folder_path , file_name, ImageType.PREDICT, DATA_EXT_OFFSET)) as f:
                     predict_json = json.load(f)
-                if actual_json['people'] == 0 and predict_json['people'] == 0:
+                actual_people = actual_json['people']
+                predict_people = predict_json['people']
+                for actual_person in actual_people:
+                    iou_list = []
+                    for predict_person in predict_people:
+                        if getIOU(actual_person['box'], predict_person['box']) > 0.5:
+                            iou_list.append(getIOU(actual_person['box'], predict_person['box']))
+                    if len(iou_list) > 0:
+                        # people detected and should reject improper person
+                        del predict_people[iou_list.index(max(iou_list))]
+                        true_positive += 1
+                    else:
+                        false_negative += 1
+                false_positive += len(predict_people)
+                if len(actual_people) == 0 and len(predict_people) == 0:
                     true_negative += 1
-                elif actual_json['people'] == predict_json['people']:
-                    true_positive += 1
-                elif actual_json['people'] > predict_json['people']:
-                    false_negative += 1
-                elif actual_json['people'] < predict_json['people']:
-                    false_positive += 1
-                else:
-                    continue
+                        
         elif test_num == 3:
             for file_name in self.file_name_list:
                 with open(self.getFilePath(folder_path , file_name, ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
                     actual_json = json.load(f)
                 with open(self.getFilePath(folder_path , file_name, ImageType.PREDICT, DATA_EXT_OFFSET)) as f:
                     predict_json = json.load(f)
-                if actual_json['dumping_yn'][0] == 'Y' and predict_json['dumping_yn'][0] == 'Y':
-                    true_positive += 1
-                elif actual_json['dumping_yn'][0] == 'Y' and predict_json['dumping_yn'][0] == 'N':
-                    false_negative += 1
-                elif actual_json['dumping_yn'][0] == 'N' and predict_json['dumping_yn'][0] == 'Y':
-                    false_positive += 1
-                elif actual_json['dumping_yn'][0] == 'N' and predict_json['dumping_yn'][0] == 'N':
+                actual_people = actual_json['people']
+                predict_people = predict_json['people']
+                for actual_person in actual_people:
+                    iou_list = []
+                    for predict_person in predict_people:
+                        if getIOU(actual_person['box'], predict_person['box']) > 0.5:
+                            iou_list.append(getIOU(actual_person['box'], predict_person['box']))
+                    if len(iou_list) > 0:
+                        # people detected and should reject improper person
+                        if actual_person['dumping_yn'] == 'Y' and predict_people[iou_list.index(max(iou_list))]['dumping_yn'] == 'Y':
+                            true_positive += 1
+                        elif actual_person['dumping_yn'] == 'Y' and predict_people[iou_list.index(max(iou_list))]['dumping_yn'] == 'N':
+                            false_negative += 1
+                        elif actual_person['dumping_yn'] == 'N' and predict_people[iou_list.index(max(iou_list))]['dumping_yn'] == 'Y':
+                            false_positive += 1
+                        elif actual_person['dumping_yn'] == 'N' and predict_people[iou_list.index(max(iou_list))]['dumping_yn'] == 'N':
+                            true_negative += 1
+                        del predict_people[iou_list.index(max(iou_list))]
+                    else:
+                        false_negative += 1
+                false_negative += len(predict_people)
+                if len(actual_people) == 0 and len(predict_people) == 0:
                     true_negative += 1
-                else:
-                    continue
         else:
             return
+
         self.true_positive_value_label.setText(str(true_positive))
         self.false_negative_value_label.setText(str(false_negative))
         self.false_positive_value_label.setText(str(false_positive))
