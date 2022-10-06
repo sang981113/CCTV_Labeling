@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import *
 import sys
 import os
 import json
+import cv2
 
 from enum import Enum
 
@@ -20,6 +21,7 @@ JSON_MODE = True
 TEST_NAME_LIST = ['사람 검출 검출률(precision)',
                     '사람 검출 신뢰도(recall)',
                     '투기행위 인식률(accuracy)']
+ACTUAL_COLOR = (0, 255, 0)
 
 
 class ImageType(Enum):
@@ -208,7 +210,8 @@ class LabelingMain(QMainWindow):
 
         self.folder_path = DIR_OFFSET
         self.file_name_list = self.getFileList(DIR_OFFSET)
-        self.initImageAndData(self.width_scale, DIR_OFFSET, self.test_num)
+        if self.file_name_list != None or len(self.file_name_list) > 0: 
+            self.initImageAndData(self.width_scale, DIR_OFFSET, self.test_num)
 
 
     def getFolderPathByFileDialog(self):
@@ -340,16 +343,30 @@ class LabelingMain(QMainWindow):
             scale: use for setImage scale with width
             index: order of image
         """
+        with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
+            actual_json = json.load(f)
+        image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET), cv2.IMREAD_UNCHANGED)
+        image = self.drawBBox(image, actual_json['people'])
+        image_height, image_width, image_bytesPerPixel = image.shape
+        actual_image = QtGui.QImage(image.data, image_width, image_height, image_width * image_bytesPerPixel, QtGui.QImage.Format_RGB888)
+        actual_image_pixmap = QtGui.QPixmap.fromImage(actual_image).scaledToWidth(scale)
+
         if test_num == 1 or test_num == 2:
-            self.actual_image_label.setPixmap(QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET)).scaledToWidth(scale))
+            self.actual_image_label.setPixmap(actual_image_pixmap)
             self.predict_image_label.setPixmap(QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.BOX, IMAGE_EXT_OFFSET)).scaledToWidth(scale))
             self.setStatusBar(folder_path, index, ImageType.BOX)
         elif test_num == 3:
-            self.actual_image_label.setPixmap(QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET)).scaledToWidth(scale))
+            self.actual_image_label.setPixmap(actual_image_pixmap)
             self.predict_image_label.setPixmap(QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.PREDICT, IMAGE_EXT_OFFSET)).scaledToWidth(scale))
             self.setStatusBar(folder_path, index, ImageType.PREDICT)
         else:
             return
+
+    
+    def drawBBox(self, image, person_list):
+        for person in person_list:
+            cv2.rectangle(image, (person['box'][0], person['box'][1]), (person['box'][2], person['box'][3]), ACTUAL_COLOR, 2)
+        return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 
     def setStatusBar(self, folder_path, index, image_type):
