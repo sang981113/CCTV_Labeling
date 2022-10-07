@@ -1,4 +1,5 @@
-#run pytest .\CCTV_Labeling\cctv_labeling_app_test.py
+#pytest .\CCTV_Labeling\cctv_labeling_app_test.py
+#pytest .\CCTV_Labeling\cctv_labeling_app_test.py --html= .\CCTV_Labeling --self-contained-html
 import pytest
 
 import cctv_labeling_app
@@ -41,8 +42,14 @@ def test_getFolderPathByFileDialog(app):
 def test_getFileList(app):
     assert len(app.getFileList(AVAIL_DIR_OFFSET)) > 0
 
-def test_getFileList(app):
+def test_getFileList2(app):
     assert len(app.getFileList(UNAVAIL_DIR_OFFSET)) == 0
 
-# def test_setScaledImage(app):
-#     app.setScaledImage(app.width_scale, AVAIL_DIR_OFFSET, )
+def test_initImageAndData(app):
+    app.folder_path = UNAVAIL_DIR_OFFSET
+    app.file_name_list = app.getFileList(UNAVAIL_DIR_OFFSET)
+    app.initImageAndData(app.width_scale, app.folder_path, app.test_num)
+    assert len(app.file_name_list) == 0
+
+def test_getConfusionMatrixValue(app):
+    assert True
