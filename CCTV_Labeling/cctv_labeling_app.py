@@ -354,7 +354,7 @@ class LabelingMain(QMainWindow):
                 actual_json = json.load(f)
             actual_image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET), cv2.IMREAD_UNCHANGED)
             actual_image = self.drawBBox(actual_image, actual_json['people'])
-            actual_image = self.drawLabel(actual_image, actual_json['people'], ACTUAL_COLOR_BGR)
+            actual_image = self.drawLabel(actual_image, actual_json['people'], 'Person', ACTUAL_COLOR_BGR)
             actual_image = cv2.cvtColor(actual_image, cv2.COLOR_BGR2RGB)
             image_height, image_width, image_bytesPerPixel = actual_image.shape
             actual_Qimage = QtGui.QImage(actual_image.data, image_width, image_height, image_width * image_bytesPerPixel, QtGui.QImage.Format_RGB888)
@@ -366,8 +366,10 @@ class LabelingMain(QMainWindow):
                 predict_image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.DUMPING, IMAGE_EXT_OFFSET))
             else:
                 predict_image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.BOX, IMAGE_EXT_OFFSET))
-            matched_people_list = self.getMatchedPeople(actual_json['people'], predict_json['people'])
-            predict_image = self.drawLabel(predict_image, matched_people_list, PREDICT_COLOR_BGR)
+            matched_people = self.getMatchedPeople(actual_json['people'], predict_json['people'])
+            unmatched_people = self.getListSub(predict_json['people'], matched_people)
+            predict_image = self.drawLabel(predict_image, matched_people, 'Person', PREDICT_COLOR_BGR)
+            predict_image = self.drawLabel(predict_image, unmatched_people, 'Unknown', PREDICT_COLOR_BGR)
             predict_image = cv2.cvtColor(predict_image, cv2.COLOR_BGR2RGB)
             image_height, image_width, image_bytesPerPixel = predict_image.shape
             predict_Qimage = QtGui.QImage(predict_image.data, image_width, image_height, image_width * image_bytesPerPixel, QtGui.QImage.Format_RGB888)
@@ -389,6 +391,12 @@ class LabelingMain(QMainWindow):
             self.setStatusBar(folder_path, index, ImageType.DUMPING)
         else:
             return
+
+    def getListSub(self, list1, list2):
+        for val in list2:
+            if val in list1:
+                del list1[list1.index(val)]
+        return list1
 
 
     def getMatchedPeople(self, actual_people, predict_people):
@@ -416,12 +424,12 @@ class LabelingMain(QMainWindow):
         return image
 
 
-    def drawLabel(self, image, person_list, color):
-        text_size, baseline = cv2.getTextSize(text='Person', fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, thickness=2)
+    def drawLabel(self, image, person_list, text, color):
+        text_size, baseline = cv2.getTextSize(text, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, thickness=2)
         for person in person_list:
             if person == -1:
                 continue
-            cv2.putText(image, 'Person'+str(person_list.index(person)+1), (person['box'][0], person['box'][1] + text_size[1] + baseline//2), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
+            cv2.putText(image, text+str(person_list.index(person)+1), (person['box'][0], person['box'][1] + text_size[1] + baseline//2), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
         return image
 
 
