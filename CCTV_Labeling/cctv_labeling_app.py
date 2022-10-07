@@ -21,13 +21,14 @@ JSON_MODE = True
 TEST_NAME_LIST = ['사람 검출 검출률(정밀도, precision)',
                     '사람 검출 신뢰도(재현률, recall)',
                     '투기행위 인식률(정확도, accuracy)']
-ACTUAL_COLOR = (0, 255, 0)
+ACTUAL_COLOR_BGR = (0, 255, 0)
+PREDICT_COLOR_BGR = (255, 0, 0)
 
 
 class ImageType(Enum):
     ACTUAL = 1
     BOX = 2
-    PREDICT = 3
+    DUMPING = 3
     
 
 class LabelingMain(QMainWindow):
@@ -236,10 +237,10 @@ class LabelingMain(QMainWindow):
 
         if JSON_MODE == True:
             actual_file_name_list = self.getSameNameList(self.getFileNameList(ImageType.ACTUAL, IMAGE_EXT_OFFSET, file_list), self.getFileNameList(ImageType.ACTUAL, DATA_EXT_OFFSET, file_list))
-            predict_file_name_list = self.getSameNameList(self.getFileNameList(ImageType.PREDICT, IMAGE_EXT_OFFSET, file_list), self.getFileNameList(ImageType.PREDICT, DATA_EXT_OFFSET, file_list))
+            predict_file_name_list = self.getSameNameList(self.getFileNameList(ImageType.DUMPING, IMAGE_EXT_OFFSET, file_list), self.getFileNameList(ImageType.DUMPING, DATA_EXT_OFFSET, file_list))
         else:
             actual_file_name_list = self.getFileNameList(ImageType.ACTUAL, IMAGE_EXT_OFFSET, file_list)
-            predict_file_name_list = self.getFileNameList(ImageType.PREDICT, IMAGE_EXT_OFFSET, file_list)
+            predict_file_name_list = self.getFileNameList(ImageType.DUMPING, IMAGE_EXT_OFFSET, file_list)
 
         return self.getMatchedImageList(predict_file_name_list, actual_file_name_list, box_file_name_list)
 
@@ -338,7 +339,7 @@ class LabelingMain(QMainWindow):
 
         self.setScaledImage(scale, folder_path, index, test_num)
         if JSON_MODE == True:
-            self.setJsonData(folder_path, index)
+            self.setTextData(folder_path, index)
             self.setConfusionMatrixValue(folder_path, test_num)
 
 
@@ -348,30 +349,80 @@ class LabelingMain(QMainWindow):
             scale: use for setImage scale with width
             index: order of image
         """
-        with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
-            actual_json = json.load(f)
-        image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET), cv2.IMREAD_UNCHANGED)
-        image = self.drawBBox(image, actual_json['people'])
-        image_height, image_width, image_bytesPerPixel = image.shape
-        actual_image = QtGui.QImage(image.data, image_width, image_height, image_width * image_bytesPerPixel, QtGui.QImage.Format_RGB888)
-        actual_image_pixmap = QtGui.QPixmap.fromImage(actual_image).scaledToWidth(scale)
+        if JSON_MODE == True:
+            with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
+                actual_json = json.load(f)
+            actual_image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET), cv2.IMREAD_UNCHANGED)
+            actual_image = self.drawBBox(actual_image, actual_json['people'])
+            actual_image = self.drawLabel(actual_image, actual_json['people'], ACTUAL_COLOR_BGR)
+            actual_image = cv2.cvtColor(actual_image, cv2.COLOR_BGR2RGB)
+            image_height, image_width, image_bytesPerPixel = actual_image.shape
+            actual_Qimage = QtGui.QImage(actual_image.data, image_width, image_height, image_width * image_bytesPerPixel, QtGui.QImage.Format_RGB888)
+            actual_image_pixmap = QtGui.QPixmap.fromImage(actual_Qimage).scaledToWidth(scale)
+
+            with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.DUMPING, DATA_EXT_OFFSET)) as f:
+                predict_json = json.load(f)
+            if test_num == 3:
+                predict_image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.DUMPING, IMAGE_EXT_OFFSET))
+            else:
+                predict_image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.BOX, IMAGE_EXT_OFFSET))
+            matched_people_list = self.getMatchedPeople(actual_json['people'], predict_json['people'])
+            predict_image = self.drawLabel(predict_image, matched_people_list, PREDICT_COLOR_BGR)
+            predict_image = cv2.cvtColor(predict_image, cv2.COLOR_BGR2RGB)
+            image_height, image_width, image_bytesPerPixel = predict_image.shape
+            predict_Qimage = QtGui.QImage(predict_image.data, image_width, image_height, image_width * image_bytesPerPixel, QtGui.QImage.Format_RGB888)
+            predict_image_pixmap = QtGui.QPixmap.fromImage(predict_Qimage).scaledToWidth(scale)
+        else:
+            actual_image_pixmap = QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET)).scaledToWidth(scale)
+            if test_num == 3:
+                predict_image_pixmap = QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.BOX, IMAGE_EXT_OFFSET)).scaledToWidth(scale)
+            else:
+                predict_image_pixmap = QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.DUMPING, IMAGE_EXT_OFFSET)).scaledToWidth(scale)
 
         if test_num == 1 or test_num == 2:
             self.actual_image_label.setPixmap(actual_image_pixmap)
-            self.predict_image_label.setPixmap(QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.BOX, IMAGE_EXT_OFFSET)).scaledToWidth(scale))
+            self.predict_image_label.setPixmap(predict_image_pixmap)
             self.setStatusBar(folder_path, index, ImageType.BOX)
         elif test_num == 3:
             self.actual_image_label.setPixmap(actual_image_pixmap)
-            self.predict_image_label.setPixmap(QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.PREDICT, IMAGE_EXT_OFFSET)).scaledToWidth(scale))
-            self.setStatusBar(folder_path, index, ImageType.PREDICT)
+            self.predict_image_label.setPixmap(predict_image_pixmap)
+            self.setStatusBar(folder_path, index, ImageType.DUMPING)
         else:
             return
+
+
+    def getMatchedPeople(self, actual_people, predict_people):
+        matchedPeople = []
+        for actual_person in actual_people:
+            iou_list = []
+            for predict_person in predict_people:
+                if self.getIOU(actual_person['box'], predict_person['box']) > 0.5:
+                    iou_list.append(self.getIOU(actual_person['box'], predict_person['box']))
+            if len(iou_list) > 0:
+                # people detected and should reject improper person
+                matchedPeople.append(predict_people[iou_list.index(max(iou_list))])
+                del predict_people[iou_list.index(max(iou_list))]
+            else:
+                # No one detected
+                matchedPeople.append(-1)
+
+        return matchedPeople
+
 
     
     def drawBBox(self, image, person_list):
         for person in person_list:
-            cv2.rectangle(image, (person['box'][0], person['box'][1]), (person['box'][2], person['box'][3]), ACTUAL_COLOR, 2)
-        return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            cv2.rectangle(image, (person['box'][0], person['box'][1]), (person['box'][2], person['box'][3]), ACTUAL_COLOR_BGR, 2)
+        return image
+
+
+    def drawLabel(self, image, person_list, color):
+        text_size, baseline = cv2.getTextSize(text='Person', fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1, thickness=2)
+        for person in person_list:
+            if person == -1:
+                continue
+            cv2.putText(image, 'Person'+str(person_list.index(person)+1), (person['box'][0], person['box'][1] + text_size[1] + baseline//2), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
+        return image
 
 
     def setStatusBar(self, folder_path, index, image_type):
@@ -386,15 +437,15 @@ class LabelingMain(QMainWindow):
         self.lbl_index_value.show()
 
 
-    def setJsonData(self, folder_path, index):
+    def setTextData(self, folder_path, index):
         def getDumping_yn(json):
             dumping_str = ''
             for person in json['people']:
-                dumping_str = dumping_str + person['dumping_yn']
+                dumping_str = dumping_str + ', ' + person['dumping_yn']
             return dumping_str
         with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
             actual_json = json.load(f)
-        with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.PREDICT, DATA_EXT_OFFSET)) as f:
+        with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.DUMPING, DATA_EXT_OFFSET)) as f:
             predict_json = json.load(f)
 
         self.actual_people_count_value_label.setText(str(len(actual_json['people'])))
@@ -404,43 +455,45 @@ class LabelingMain(QMainWindow):
 
 
     def setConfusionMatrixValue(self, folder_path, test_num):
+        true_positive, false_negative, false_positive, true_negative = self.getConfusionMatrixValue(folder_path, test_num)
+
+        self.true_positive_value_label.setText(str(true_positive))
+        self.false_negative_value_label.setText(str(false_negative))
+        self.false_positive_value_label.setText(str(false_positive))
+        self.true_negative_value_label.setText(str(true_negative))
+        try:
+            self.precision_value_label.setText(str(round(true_positive / (true_positive + false_positive), 5)))
+        except ZeroDivisionError:
+            self.precision_value_label.setText(str(true_positive) + '/' + str(true_positive + false_positive))
+        try:
+            self.recall_value_label.setText(str(round(true_positive / (true_positive + false_negative), 5)))
+        except ZeroDivisionError:
+            self.recall_value_label.setText(str(true_positive) + '/' + str(true_positive + false_negative))
+        try:
+            self.accuracy_value_label.setText(str(round((true_positive + true_negative) / (true_positive + false_positive + false_negative + true_negative), 5)))
+        except ZeroDivisionError:
+            self.accuracy_value_label.setText(str(true_positive + true_negative) + '/' + str(true_positive + false_positive + false_negative + true_negative))
+
+
+    def getConfusionMatrixValue(self, folder_path, test_num):
         true_positive = 0
         false_negative = 0
         false_positive = 0
         true_negative = 0
 
-        def getIOU(box1, box2):
-            # box = (x1, y1, x2, y2)
-            box1_area = (box1[2] - box1[0] + 1) * (box1[3] - box1[1] + 1)
-            box2_area = (box2[2] - box2[0] + 1) * (box2[3] - box2[1] + 1)
-
-            # obtain x1, y1, x2, y2 of the intersection
-            x1 = max(box1[0], box2[0])
-            y1 = max(box1[1], box2[1])
-            x2 = min(box1[2], box2[2])
-            y2 = min(box1[3], box2[3])
-
-            # compute the width and height of the intersection
-            w = max(0, x2 - x1 + 1)
-            h = max(0, y2 - y1 + 1)
-
-            inter = w * h
-            iou = inter / (box1_area + box2_area - inter)
-            return iou
-
         if test_num == 1 or test_num == 2:
             for file_name in self.file_name_list:
                 with open(self.getFilePath(folder_path , file_name, ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
                     actual_json = json.load(f)
-                with open(self.getFilePath(folder_path , file_name, ImageType.PREDICT, DATA_EXT_OFFSET)) as f:
+                with open(self.getFilePath(folder_path , file_name, ImageType.DUMPING, DATA_EXT_OFFSET)) as f:
                     predict_json = json.load(f)
                 actual_people = actual_json['people']
                 predict_people = predict_json['people']
                 for actual_person in actual_people:
                     iou_list = []
                     for predict_person in predict_people:
-                        if getIOU(actual_person['box'], predict_person['box']) > 0.5:
-                            iou_list.append(getIOU(actual_person['box'], predict_person['box']))
+                        if self.getIOU(actual_person['box'], predict_person['box']) > 0.5:
+                            iou_list.append(self.getIOU(actual_person['box'], predict_person['box']))
                     if len(iou_list) > 0:
                         # people detected and should reject improper person
                         del predict_people[iou_list.index(max(iou_list))]
@@ -450,20 +503,21 @@ class LabelingMain(QMainWindow):
                 false_positive += len(predict_people)
                 if len(actual_people) == 0 and len(predict_people) == 0:
                     true_negative += 1
+            return true_positive, false_negative, false_positive, true_negative
                         
         elif test_num == 3:
             for file_name in self.file_name_list:
                 with open(self.getFilePath(folder_path , file_name, ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
                     actual_json = json.load(f)
-                with open(self.getFilePath(folder_path , file_name, ImageType.PREDICT, DATA_EXT_OFFSET)) as f:
+                with open(self.getFilePath(folder_path , file_name, ImageType.DUMPING, DATA_EXT_OFFSET)) as f:
                     predict_json = json.load(f)
                 actual_people = actual_json['people']
                 predict_people = predict_json['people']
                 for actual_person in actual_people:
                     iou_list = []
                     for predict_person in predict_people:
-                        if getIOU(actual_person['box'], predict_person['box']) > 0.5:
-                            iou_list.append(getIOU(actual_person['box'], predict_person['box']))
+                        if self.getIOU(actual_person['box'], predict_person['box']) > 0.5:
+                            iou_list.append(self.getIOU(actual_person['box'], predict_person['box']))
                     if len(iou_list) > 0:
                         # people detected and should reject improper person
                         if actual_person['dumping_yn'] == 'Y' and predict_people[iou_list.index(max(iou_list))]['dumping_yn'] == 'Y':
@@ -480,25 +534,29 @@ class LabelingMain(QMainWindow):
                 false_negative += len(predict_people)
                 if len(actual_people) == 0 and len(predict_people) == 0:
                     true_negative += 1
+            return true_positive, false_negative, false_positive, true_negative
         else:
-            return
+            return true_positive, false_negative, false_positive, true_negative
 
-        self.true_positive_value_label.setText(str(true_positive))
-        self.false_negative_value_label.setText(str(false_negative))
-        self.false_positive_value_label.setText(str(false_positive))
-        self.true_negative_value_label.setText(str(true_negative))
-        try:
-            self.precision_value_label.setText(str(true_positive / (true_positive + false_positive)))
-        except ZeroDivisionError:
-            self.precision_value_label.setText(str(true_positive) + '/' + str(true_positive + false_positive))
-        try:
-            self.recall_value_label.setText(str(true_positive / (true_positive + false_negative)))
-        except ZeroDivisionError:
-            self.recall_value_label.setText(str(true_positive) + '/' + str(true_positive + false_negative))
-        try:
-            self.accuracy_value_label.setText(str((true_positive + true_negative) / (true_positive + false_positive + false_negative + true_negative)))
-        except ZeroDivisionError:
-            self.accuracy_value_label.setText(str(true_positive + true_negative) + '/' + str(true_positive + false_positive + false_negative + true_negative))
+
+    def getIOU(self, box1, box2):
+        # box = (x1, y1, x2, y2)
+        box1_area = (box1[2] - box1[0] + 1) * (box1[3] - box1[1] + 1)
+        box2_area = (box2[2] - box2[0] + 1) * (box2[3] - box2[1] + 1)
+
+        # obtain x1, y1, x2, y2 of the intersection
+        x1 = max(box1[0], box2[0])
+        y1 = max(box1[1], box2[1])
+        x2 = min(box1[2], box2[2])
+        y2 = min(box1[3], box2[3])
+
+        # compute the width and height of the intersection
+        w = max(0, x2 - x1 + 1)
+        h = max(0, y2 - y1 + 1)
+
+        inter = w * h
+        iou = inter / (box1_area + box2_area - inter)
+        return iou
         
 
     def getFilePath(self, folder_path, file_name, image_type, file_ext_offset):
@@ -510,7 +568,7 @@ class LabelingMain(QMainWindow):
             return ACTUAL_OFFSET + FILE_SPLITER + file_name + file_ext_offset
         elif image_type == ImageType.BOX:
             return BOX_OFFSET + FILE_SPLITER + file_name + file_ext_offset
-        elif image_type == ImageType.PREDICT:
+        elif image_type == ImageType.DUMPING:
             return PREDICT_OFFSET + FILE_SPLITER + file_name + file_ext_offset
 
 
@@ -538,7 +596,7 @@ class LabelingMain(QMainWindow):
                 if not file_name.startswith(ACTUAL_OFFSET):
                     continue
                 file_name_list.append(file_name)
-            elif file_ext == file_ext_offset and image_type == ImageType.PREDICT:
+            elif file_ext == file_ext_offset and image_type == ImageType.DUMPING:
                 if file_name.startswith(PREDICT_OFFSET):
                     file_name_list.append(file_name)
             elif file_ext == file_ext_offset and image_type == ImageType.BOX:
