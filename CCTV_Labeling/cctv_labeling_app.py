@@ -88,9 +88,10 @@ class LabelingMain(QMainWindow):
         self.test_name_label.setVisible(False)
         self.main_layout.addWidget(self.test_name_label)
 
-        self.top_text_data_layout = QHBoxLayout()
-        self.main_layout.addLayout(self.top_text_data_layout)
+        self.text_data_layout = QHBoxLayout()
+        self.main_layout.addLayout(self.text_data_layout)
 
+        self.left_text_data_layout = QHBoxLayout()
         self.json_data_layout = QVBoxLayout()
 
         def initJsonGroupBox(text_label, value_label):
@@ -128,7 +129,23 @@ class LabelingMain(QMainWindow):
         self.json_data_layout.addWidget(self.recall_groupbox)
         self.json_data_layout.addWidget(self.accuracy_groupbox)
         self.json_data_layout.setAlignment(QtCore.Qt.AlignLeft)
-        self.top_text_data_layout.addLayout(self.json_data_layout)
+        self.left_text_data_layout.addLayout(self.json_data_layout)
+
+        self.now_confusion_layout = QVBoxLayout()
+        self.now_confusion_groupbox = QGroupBox()
+        self.now_confusion_groupbox.setStyleSheet("QGroupBox{border:1px solid black}")
+        self.now_confusion_groupbox.setVisible(True)
+        layout = QGridLayout()
+        self.now_confusion_groupbox.setLayout(layout)
+        self.now_confusion_text_label = QLabel("현재 사진 검출 결과")
+        self.now_confusion_value_label = QLabel()
+        self.now_confusion_text_label.setStyleSheet("QLabel{font-size:15pt; font-weight:bold}")
+        self.now_confusion_value_label.setStyleSheet("QLabel{font-size:15pt; font-weight:bold}")
+        layout.addWidget(self.now_confusion_text_label, 0, 0, 1, 1)
+        layout.addWidget(self.now_confusion_value_label, 1, 0, 1, 1)
+        self.now_confusion_layout.addWidget(self.now_confusion_groupbox)
+        self.left_text_data_layout.addLayout(self.now_confusion_layout)
+        self.text_data_layout.addLayout(self.left_text_data_layout)
 
         self.confusion_matrix_layout = QGridLayout()
         def initConfusionMatrixGroupBox(text_label, value_label):
@@ -152,11 +169,11 @@ class LabelingMain(QMainWindow):
         self.true_negative_value_label = QLabel()
         self.true_negative_groupbox = initConfusionMatrixGroupBox(QLabel('True Negative: '), self.true_negative_value_label)
         self.confusion_matrix_layout.addWidget(self.true_positive_groupbox, 0, 0, 1, 1)
-        self.confusion_matrix_layout.addWidget(self.false_negative_groupbox, 0, 2, 1, 1)
+        self.confusion_matrix_layout.addWidget(self.false_negative_groupbox, 0, 1, 1, 1)
         self.confusion_matrix_layout.addWidget(self.false_positive_groupbox, 1, 0, 1, 1)
-        self.confusion_matrix_layout.addWidget(self.true_negative_groupbox, 1, 2, 1, 1)
+        self.confusion_matrix_layout.addWidget(self.true_negative_groupbox, 1, 1, 1, 1)
         self.confusion_matrix_layout.setAlignment(QtCore.Qt.AlignCenter)
-        self.top_text_data_layout.addLayout(self.confusion_matrix_layout)
+        self.text_data_layout.addLayout(self.confusion_matrix_layout)
 
 
         self.image_layout = QHBoxLayout()
@@ -188,13 +205,13 @@ class LabelingMain(QMainWindow):
         self.prev_btn = QPushButton()
         self.prev_btn.setEnabled(False)
         self.prev_btn.setIcon(self.style().standardIcon(QStyle.SP_ArrowLeft))
-        self.prev_btn.clicked.connect(lambda: self.prevBtnAction(self.width_scale, self.folder_path, self.file_index, self.test_num))
+        self.prev_btn.clicked.connect(lambda: self.prevBtnAction(self.width_scale, self.folder_path, self.file_index, self.test_num, self.file_name_list))
         self.prev_next_btn_layout.addWidget(self.prev_btn)
 
         self.next_btn = QPushButton()
         self.next_btn.setEnabled(False)
         self.next_btn.setIcon(self.style().standardIcon(QStyle.SP_ArrowRight))
-        self.next_btn.clicked.connect(lambda: self.nextBtnAction(self.width_scale, self.folder_path, self.file_index, self.test_num))
+        self.next_btn.clicked.connect(lambda: self.nextBtnAction(self.width_scale, self.folder_path, self.file_index, self.test_num, self.file_name_list))
         self.prev_next_btn_layout.addWidget(self.next_btn)
         self.button_control_layout.addLayout(self.prev_next_btn_layout)
         self.main_layout.addLayout(self.button_control_layout)
@@ -203,7 +220,7 @@ class LabelingMain(QMainWindow):
         self.next_test_btn = QPushButton('다음 테스트')
         self.next_test_btn.setVisible(False)
         self.next_test_btn.setIcon(self.style().standardIcon(QStyle.SP_DialogApplyButton))
-        self.next_test_btn.clicked.connect(lambda: self.nextTestBtnAction(self.width_scale, self.folder_path, self.test_num))
+        self.next_test_btn.clicked.connect(lambda: self.nextTestBtnAction(self.width_scale, self.folder_path, self.test_num, self.file_name_list))
         self.test_btn_layout.setAlignment(QtCore.Qt.AlignRight)
         self.test_btn_layout.addWidget(self.next_test_btn)
         self.button_control_layout.addLayout(self.test_btn_layout)
@@ -215,7 +232,7 @@ class LabelingMain(QMainWindow):
         if len(self.getFileList(folder_path)) > 0:
             self.file_name_list = self.getFileList(folder_path)
             self.folder_path = folder_path
-            self.initImageAndData(scale, folder_path, test_num)
+            self.initImageAndData(scale, folder_path, test_num, self.getFileList(folder_path))
 
 
     def getFileList(self, folder_path):
@@ -236,7 +253,7 @@ class LabelingMain(QMainWindow):
         return self.getMatchedImageList(predict_file_name_list, actual_file_name_list, box_file_name_list)
 
 
-    def initImageAndData(self, scale, folder_path, test_num):
+    def initImageAndData(self, scale, folder_path, test_num, file_name_list):
         """
             Keyword arguments
             scale: use for setImage scale with width
@@ -247,7 +264,7 @@ class LabelingMain(QMainWindow):
             # if selected cancel in the getFolderPathByDir
             return
 
-        if len(self.file_name_list) == 0:
+        if len(file_name_list) == 0:
             QMessageBox.information(self, '알림', '표시할 수 있는 사진이 없습니다.')
             return
 
@@ -280,7 +297,7 @@ class LabelingMain(QMainWindow):
             return
 
         self.file_index = 0
-        self.setImageAndData(scale, folder_path, 0, test_num)
+        self.setImageAndData(scale, folder_path, 0, test_num, file_name_list)
         self.test_name_label.setVisible(True)
         self.test_name_label.setText(str(test_num) + '. ' + TEST_NAME_LIST[test_num - 1])
         self.true_positive_groupbox.setVisible(True)
@@ -305,46 +322,43 @@ class LabelingMain(QMainWindow):
 
 
 
-    def setImageAndData(self, scale, folder_path, index, test_num):
-        if test_num > len(TEST_NAME_LIST):
-            return
-
-        if index == 0 and len(self.file_name_list) > 1:
+    def setImageAndData(self, scale, folder_path, index, test_num, file_name_list):
+        if index == 0 and len(file_name_list) > 1:
             self.prev_btn.setEnabled(False)
             self.next_btn.setEnabled(True)
             self.next_test_btn.setVisible(False)
-        elif index == 0 and len(self.file_name_list) <= 1:
+        elif index == 0 and len(file_name_list) <= 1:
             self.prev_btn.setEnabled(False)
             self.next_btn.setEnabled(False)
             self.next_test_btn.setVisible(False)
-        elif index == len(self.file_name_list) - 1:
+        elif index == len(file_name_list) - 1:
             self.prev_btn.setEnabled(True)
             self.next_btn.setEnabled(False)
             self.next_test_btn.setVisible(True)
-        elif index > 0 and index < len(self.file_name_list) - 1:
+        elif index > 0 and index < len(file_name_list) - 1:
             self.prev_btn.setEnabled(True)
             self.next_btn.setEnabled(True)
             self.next_test_btn.setVisible(False)
         else:
             return
 
-        self.setScaledImage(scale, folder_path, index, test_num)
+        self.setScaledImage(scale, folder_path, index, test_num, file_name_list)
         if JSON_MODE == True:
             self.setTextData(folder_path, index)
-            true_positive, false_negative, false_positive, true_negative = self.calcConfusionMatrixValue(folder_path, test_num)
-            self.setConfusionMatrixValue(true_positive, false_negative, false_positive, true_negative, folder_path, test_num)
+            true_positive, false_negative, false_positive, true_negative = self.calcConfusionMatrix(folder_path, test_num, file_name_list)
+            self.setConfusionMatrix(true_positive, false_negative, false_positive, true_negative, folder_path, test_num)
 
 
-    def setScaledImage(self, scale, folder_path, index, test_num):
+    def setScaledImage(self, scale, folder_path, index, test_num, file_name_list):
         """
             Keyword arguments
             scale: use for setImage scale with width
             index: order of image
         """
         if JSON_MODE == True:
-            with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
+            with open(self.getFilePath(folder_path , file_name_list[index], ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
                 actual_json = json.load(f)
-            actual_image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET), cv2.IMREAD_UNCHANGED)
+            actual_image = cv2.imread(self.getFilePath(folder_path, file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET), cv2.IMREAD_UNCHANGED)
             actual_image = self.drawBBox(actual_image, actual_json['people'])
             actual_image = self.drawLabel(actual_image, actual_json['people'], 'Person', ACTUAL_COLOR_BGR)
             actual_image = cv2.cvtColor(actual_image, cv2.COLOR_BGR2RGB)
@@ -352,12 +366,12 @@ class LabelingMain(QMainWindow):
             actual_Qimage = QtGui.QImage(actual_image.data, image_width, image_height, image_width * image_bytesPerPixel, QtGui.QImage.Format_RGB888)
             actual_image_pixmap = QtGui.QPixmap.fromImage(actual_Qimage).scaledToWidth(scale)
 
-            with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.DUMPING, DATA_EXT_OFFSET)) as f:
+            with open(self.getFilePath(folder_path , file_name_list[index], ImageType.DUMPING, DATA_EXT_OFFSET)) as f:
                 predict_json = json.load(f)
             if test_num == 3:
-                predict_image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.DUMPING, IMAGE_EXT_OFFSET))
+                predict_image = cv2.imread(self.getFilePath(folder_path, file_name_list[index], ImageType.DUMPING, IMAGE_EXT_OFFSET))
             else:
-                predict_image = cv2.imread(self.getFilePath(folder_path, self.file_name_list[index], ImageType.BOX, IMAGE_EXT_OFFSET))
+                predict_image = cv2.imread(self.getFilePath(folder_path, file_name_list[index], ImageType.BOX, IMAGE_EXT_OFFSET))
             matched_people = self.getMatchedPeople(actual_json['people'], predict_json['people'])
             unmatched_people = self.getListSub(predict_json['people'], matched_people)
             predict_image = self.drawLabel(predict_image, matched_people, 'Person', PREDICT_COLOR_BGR)
@@ -367,11 +381,11 @@ class LabelingMain(QMainWindow):
             predict_Qimage = QtGui.QImage(predict_image.data, image_width, image_height, image_width * image_bytesPerPixel, QtGui.QImage.Format_RGB888)
             predict_image_pixmap = QtGui.QPixmap.fromImage(predict_Qimage).scaledToWidth(scale)
         else:
-            actual_image_pixmap = QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET)).scaledToWidth(scale)
+            actual_image_pixmap = QtGui.QPixmap(self.getFilePath(folder_path, file_name_list[index], ImageType.ACTUAL, IMAGE_EXT_OFFSET)).scaledToWidth(scale)
             if test_num == 3:
-                predict_image_pixmap = QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.BOX, IMAGE_EXT_OFFSET)).scaledToWidth(scale)
+                predict_image_pixmap = QtGui.QPixmap(self.getFilePath(folder_path, file_name_list[index], ImageType.BOX, IMAGE_EXT_OFFSET)).scaledToWidth(scale)
             else:
-                predict_image_pixmap = QtGui.QPixmap(self.getFilePath(folder_path, self.file_name_list[index], ImageType.DUMPING, IMAGE_EXT_OFFSET)).scaledToWidth(scale)
+                predict_image_pixmap = QtGui.QPixmap(self.getFilePath(folder_path, file_name_list[index], ImageType.DUMPING, IMAGE_EXT_OFFSET)).scaledToWidth(scale)
 
         if test_num == 1 or test_num == 2:
             self.actual_image_label.setPixmap(actual_image_pixmap)
@@ -459,15 +473,17 @@ class LabelingMain(QMainWindow):
         with open(self.getFilePath(folder_path , self.file_name_list[index], ImageType.DUMPING, DATA_EXT_OFFSET)) as f:
             predict_json = json.load(f)
 
-        matched_people = self.getMatchedPeople(actual_json['people'], predict_json['people'])
+        matched_people = self.getMatchedPeople(actual_json['people'][:], predict_json['people'][:])
 
         self.actual_people_count_value_label.setText(str(len(actual_json['people'])))
         self.actual_dumping_yn_value_label.setText(str(getDumping_yn(actual_json['people'])))
         self.predict_people_count_value_label.setText(str(len(predict_json['people'])))
         self.predict_dumping_yn_value_label.setText(str(getDumping_yn(matched_people)))
 
+        self.now_confusion_value_label.setText(str())
 
-    def setConfusionMatrixValue(self, true_positive, false_negative, false_positive, true_negative, folder_path, test_num):
+
+    def setConfusionMatrix(self, true_positive, false_negative, false_positive, true_negative, folder_path, test_num):
         self.true_positive_value_label.setText(str(true_positive))
         self.false_negative_value_label.setText(str(false_negative))
         self.false_positive_value_label.setText(str(false_positive))
@@ -486,14 +502,14 @@ class LabelingMain(QMainWindow):
             self.accuracy_value_label.setText(str(true_positive + true_negative) + '/' + str(true_positive + false_positive + false_negative + true_negative))
 
 
-    def calcConfusionMatrixValue(self, folder_path, test_num):
+    def calcConfusionMatrix(self, folder_path, test_num, file_name_list):
         true_positive = 0
         false_negative = 0
         false_positive = 0
         true_negative = 0
 
         if test_num == 1 or test_num == 2:
-            for file_name in self.file_name_list:
+            for file_name in file_name_list:
                 with open(self.getFilePath(folder_path , file_name, ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
                     actual_json = json.load(f)
                 with open(self.getFilePath(folder_path , file_name, ImageType.DUMPING, DATA_EXT_OFFSET)) as f:
@@ -506,7 +522,7 @@ class LabelingMain(QMainWindow):
                         if self.getIOU(actual_person['box'], predict_person['box']) > 0.5:
                             iou_list.append(self.getIOU(actual_person['box'], predict_person['box']))
                     if len(iou_list) > 0:
-                        # people detected and should reject improper person
+                                # people detected and should reject improper person
                         del predict_people[iou_list.index(max(iou_list))]
                         true_positive += 1
                     else:
@@ -515,9 +531,10 @@ class LabelingMain(QMainWindow):
                 if len(actual_people) == 0 and len(predict_people) == 0:
                     true_negative += 1
             return true_positive, false_negative, false_positive, true_negative
+
     
         elif test_num == 3:
-            for file_name in self.file_name_list:
+            for file_name in file_name_list:
                 with open(self.getFilePath(folder_path , file_name, ImageType.ACTUAL, DATA_EXT_OFFSET)) as f:
                     actual_json = json.load(f)
                 with open(self.getFilePath(folder_path , file_name, ImageType.DUMPING, DATA_EXT_OFFSET)) as f:
@@ -621,20 +638,20 @@ class LabelingMain(QMainWindow):
         return sorted(list(set(file_list1) & set(file_list2)))
 
 
-    def prevBtnAction(self, scale, folder_path, index, test_num):
-        self.setImageAndData(scale, folder_path, index-1, test_num)
+    def prevBtnAction(self, scale, folder_path, index, test_num, file_name_list):
+        self.setImageAndData(scale, folder_path, index-1, test_num, file_name_list)
         self.file_index = index - 1
         self.setFocus()
 
 
-    def nextBtnAction(self, scale, folder_path, index, test_num):
-        self.setImageAndData(scale, folder_path, index+1, test_num)
+    def nextBtnAction(self, scale, folder_path, index, test_num, file_name_list):
+        self.setImageAndData(scale, folder_path, index+1, test_num, file_name_list)
         self.file_index = index + 1
         self.setFocus()
 
 
-    def nextTestBtnAction(self, scale, folder_path, test_num):
-        self.initImageAndData(scale, folder_path, test_num+1)
+    def nextTestBtnAction(self, scale, folder_path, test_num, file_name_list):
+        self.initImageAndData(scale, folder_path, test_num+1, file_name_list)
         self.test_num = self.test_num + 1
         self.setFocus()
 
@@ -643,12 +660,28 @@ class LabelingMain(QMainWindow):
         if e.key() == QtCore.Qt.Key_Escape:
             self.close()
         elif e.key() == QtCore.Qt.Key_Left and self.prev_btn.isEnabled():
-            self.prevBtnAction(self.width_scale, self.folder_path, self.file_index, self.test_num)
+            self.prevBtnAction(self.width_scale, self.folder_path, self.file_index, self.test_num, self.file_name_list)
         elif e.key() == QtCore.Qt.Key_Right and self.next_btn.isEnabled():
-            self.nextBtnAction(self.width_scale, self.folder_path, self.file_index, self.test_num)
+            self.nextBtnAction(self.width_scale, self.folder_path, self.file_index, self.test_num, self.file_name_list)
         elif e.key() == QtCore.Qt.Key_Return and self.next_test_btn.isVisible():
-            self.nextTestBtnAction(self.width_scale, self.folder_path, self.test_num)
+            self.nextTestBtnAction(self.width_scale, self.folder_path, self.test_num, self.file_name_list)
 
+
+class Controller():
+    def __init__(self) -> None:
+        pass
+
+class ConfusionMatrix():
+    def __init__(self) -> None:
+        pass
+
+class ImageFile():
+    def __init__(self) -> None:
+        pass
+
+class JsonFile():
+    def __init__(self) -> None:
+        pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
