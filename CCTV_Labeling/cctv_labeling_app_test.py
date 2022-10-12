@@ -1,11 +1,13 @@
 #pytest .\CCTV_Labeling\cctv_labeling_app_test.py
-#pytest .\CCTV_Labeling\cctv_labeling_app_test.py --html= .\CCTV_Labeling --self-contained-html
+#pytest --cov-report term --cov=[coverage .\CCTV_Labeling\cctv_labeling_app_test.py]
 import pytest
 
 import cctv_labeling_app
 
 AVAIL_DIR_OFFSET = './test_images'
 UNAVAIL_DIR_OFFSET = './unavail_dir'
+AVAIL_SCALE_OFFSET = 920
+
 
 @pytest.fixture
 def app(qtbot):
@@ -14,30 +16,41 @@ def app(qtbot):
 
     return test_cctv_app
 
+def test_initValue(app):
+    app.initValue(100, AVAIL_DIR_OFFSET, 1)
+    assert len(app.file_name_list) > 0
+
+def test_initValue2(app):
+    app.initValue(0, UNAVAIL_DIR_OFFSET, 2)
+    assert len(app.file_name_list) == 0
+
+def test_initImageAndData(app):
+    app.initValue(100, AVAIL_DIR_OFFSET, 1)
+    app.initImageAndData(10000, AVAIL_DIR_OFFSET, 2, app.getFileList(AVAIL_DIR_OFFSET))
+    assert app.actual_people_count_groupbox.isVisible()
+
+def test_initImageAndData2(app):
+    app.initValue(AVAIL_SCALE_OFFSET, AVAIL_DIR_OFFSET, 3)
+    app.initImageAndData(500, AVAIL_DIR_OFFSET, 3, app.getFileList(AVAIL_DIR_OFFSET))
+    assert app.predict_dumping_yn_groupbox.isVisible()
+
 def test_title(app):
     assert app.windowTitle() == 'CCTV_Verification'
 
-def test_lbl_folder_path_value(app):
-    assert app.lbl_folder_path_value.text() == './test_images'
-
 def test_prevBtnAction(app):
-    app.file_index = 2
-    app.prevBtnAction(app.width_scale, app.folder_path, app.file_index, app.test_num)
+    app.initValue(AVAIL_SCALE_OFFSET, AVAIL_DIR_OFFSET, 1)
+    app.prevBtnAction(app.width_scale, AVAIL_DIR_OFFSET, 2, app.test_num, app.getFileList(AVAIL_DIR_OFFSET))
     assert app.file_index == 1
 
 def test_prevBtnAction2(app):
-    app.file_index = 100
-    app.prevBtnAction(app.width_scale, app.folder_path, app.file_index, app.test_num)
+    app.initValue(AVAIL_SCALE_OFFSET, AVAIL_DIR_OFFSET, 1)
+    app.prevBtnAction(app.width_scale, AVAIL_DIR_OFFSET, 100, app.test_num, app.getFileList(AVAIL_DIR_OFFSET))
     assert app.file_index == 99
 
 def test_nextBtnAction(app):
-    app.file_index = 2
-    app.nextBtnAction(app.width_scale, app.folder_path, app.file_index, app.test_num)
+    app.initValue(AVAIL_SCALE_OFFSET, AVAIL_DIR_OFFSET, 1)
+    app.nextBtnAction(app.width_scale, AVAIL_DIR_OFFSET, 2, app.test_num, app.getFileList(AVAIL_DIR_OFFSET))
     assert app.file_index == 3
-
-def test_getFolderPathByFileDialog(app):
-    app.getFolderPathByFileDialog()
-    assert app.test_num == 1 and app.file_index == 0 and app.folder_path != None
 
 def test_getFileList(app):
     assert len(app.getFileList(AVAIL_DIR_OFFSET)) > 0
@@ -45,11 +58,5 @@ def test_getFileList(app):
 def test_getFileList2(app):
     assert len(app.getFileList(UNAVAIL_DIR_OFFSET)) == 0
 
-def test_initImageAndData(app):
-    app.folder_path = UNAVAIL_DIR_OFFSET
-    app.file_name_list = app.getFileList(UNAVAIL_DIR_OFFSET)
-    app.initImageAndData(app.width_scale, app.folder_path, app.test_num)
-    assert len(app.file_name_list) == 0
-
-def test_getConfusionMatrixValue(app):
+def test_calcConfusionMatrixValue(app):
     assert True
