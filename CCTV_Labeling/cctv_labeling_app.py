@@ -41,6 +41,7 @@ class LabelingMain(QMainWindow):
         self.default_image_pixmap.fill(QtGui.qRgb(255, 255, 255))
         self.initUI()
         self.initValue(WIDTH_SCALE_OFFSET, DIR_OFFSET, self.test_num)
+        self.show()
 
     def initUI(self):
         self.setWindowTitle(APP_NAME)
@@ -129,15 +130,15 @@ class LabelingMain(QMainWindow):
         self.now_confusion_layout = QVBoxLayout()
         self.now_confusion_groupbox = QGroupBox()
         self.now_confusion_groupbox.setStyleSheet("QGroupBox{border:1px solid black}")
-        self.now_confusion_groupbox.setVisible(True)
+        self.now_confusion_groupbox.setVisible(False)
         layout = QGridLayout()
         self.now_confusion_groupbox.setLayout(layout)
         self.now_confusion_text_label = QLabel("현재 사진 검출 결과")
         self.now_confusion_value_label = QLabel()
         self.now_confusion_text_label.setStyleSheet("QLabel{font-size:15pt; font-weight:bold}")
         self.now_confusion_value_label.setStyleSheet("QLabel{font-size:15pt; font-weight:bold}")
-        layout.addWidget(self.now_confusion_text_label, 0, 0, 1, 1)
-        layout.addWidget(self.now_confusion_value_label, 1, 0, 1, 1)
+        layout.addWidget(self.now_confusion_text_label, 0, 0, 1, 1, QtCore.Qt.AlignCenter)
+        layout.addWidget(self.now_confusion_value_label, 1, 0, 1, 1, QtCore.Qt.AlignCenter)
         self.now_confusion_layout.addWidget(self.now_confusion_groupbox)
         self.left_text_data_layout.addLayout(self.now_confusion_layout)
         self.text_data_layout.addLayout(self.left_text_data_layout)
@@ -220,7 +221,6 @@ class LabelingMain(QMainWindow):
         self.test_btn_layout.addWidget(self.next_test_btn)
         self.button_control_layout.addLayout(self.test_btn_layout)
         self.main_layout.setAlignment(QtCore.Qt.AlignCenter)
-        self.show()
         
 
     def initValue(self, scale, folder_path, test_num):
@@ -241,10 +241,6 @@ class LabelingMain(QMainWindow):
             folder_path: initial value or get from getFolderPathByDir
             test_num: the index of test
         """
-        # if file.get_folder_path() == None:
-        #     # if selected cancel in the getExistingDirectory
-        #     return
-
         if test_num == 1:
             self.actual_people_count_groupbox.setVisible(True)
             self.predict_people_count_groupbox.setVisible(True)
@@ -253,6 +249,7 @@ class LabelingMain(QMainWindow):
             self.precision_groupbox.setVisible(True)
             self.recall_groupbox.setVisible(False)
             self.accuracy_groupbox.setVisible(False)
+            self.now_confusion_groupbox.setVisible(True)
         elif test_num == 2:
             self.actual_people_count_groupbox.setVisible(True)
             self.predict_people_count_groupbox.setVisible(True)
@@ -261,6 +258,7 @@ class LabelingMain(QMainWindow):
             self.precision_groupbox.setVisible(False)
             self.recall_groupbox.setVisible(True)
             self.accuracy_groupbox.setVisible(False)
+            self.now_confusion_groupbox.setVisible(True)
         elif test_num == 3:
             self.actual_people_count_groupbox.setVisible(False)
             self.predict_people_count_groupbox.setVisible(False)
@@ -269,6 +267,7 @@ class LabelingMain(QMainWindow):
             self.precision_groupbox.setVisible(False)
             self.recall_groupbox.setVisible(False)
             self.accuracy_groupbox.setVisible(True)
+            self.now_confusion_groupbox.setVisible(True)
         else:
             QMessageBox.information(self, '알림', '테스트를 완료하셨습니다.')
             return
@@ -300,6 +299,9 @@ class LabelingMain(QMainWindow):
 
 
     def setImageAndData(self, scale, index, test_num, file):
+        if test_num > len(TEST_NAME_LIST):
+            return
+            
         if index == 0 and len(file.get_file_name_list()) > 1:
             self.prev_btn.setEnabled(False)
             self.next_btn.setEnabled(True)
@@ -388,7 +390,7 @@ class LabelingMain(QMainWindow):
         with open(file.getFilePath(file.get_folder_path() , file.get_file_name_list()[index], ImageType.DUMPING, DATA_EXT_OFFSET)) as f:
             predict_json = json.load(f)
 
-        matched_people = file.getMatchedPeople(actual_json['people'][:], predict_json['people'][:])
+        matched_people = Util.getMatchedPeople(actual_json['people'][:], predict_json['people'][:])
 
         self.actual_people_count_value_label.setText(str(len(actual_json['people'])))
         self.actual_dumping_yn_value_label.setText(str(getDumping_yn(actual_json['people'])))
@@ -623,7 +625,7 @@ class File():
                 predict_image = cv2.imread(self.getFilePath(self.__folder_path, self.__file_name_list[index], ImageType.DUMPING, IMAGE_EXT_OFFSET))
             else:
                 predict_image = cv2.imread(self.getFilePath(self.__folder_path, self.__file_name_list[index], ImageType.BOX, IMAGE_EXT_OFFSET))
-            matched_people = self.getMatchedPeople(actual_json['people'], predict_json['people'])
+            matched_people = Util.getMatchedPeople(actual_json['people'], predict_json['people'])
             unmatched_people = Util.getListSub(predict_json['people'], matched_people)
             predict_image = Util.drawLabel(predict_image, matched_people, 'Person', PREDICT_COLOR_BGR)
             predict_image = Util.drawLabel(predict_image, unmatched_people, 'Unknown', PREDICT_COLOR_BGR)
@@ -638,23 +640,6 @@ class File():
                 predict_image_pixmap = QtGui.QPixmap(self.getFilePath(self.__folder_path, self.__file_name_list[index], ImageType.DUMPING, IMAGE_EXT_OFFSET)).scaledToWidth(scale)
 
         return predict_image_pixmap
-
-    def getMatchedPeople(self, actual_people, predict_people):
-        matchedPeople = []
-        for actual_person in actual_people:
-            iou_list = []
-            for predict_person in predict_people:
-                if Util.getIOU(actual_person['box'], predict_person['box']) > 0.5:
-                    iou_list.append(Util.getIOU(actual_person['box'], predict_person['box']))
-            if len(iou_list) > 0:
-                # people detected and should reject improper person
-                matchedPeople.append(predict_people[iou_list.index(max(iou_list))])
-                del predict_people[iou_list.index(max(iou_list))]
-            else:
-                # No one detected
-                matchedPeople.append(-1)
-
-        return matchedPeople
 
 class Util():
     def getIOU(box1, box2):
@@ -681,6 +666,23 @@ class Util():
             if val in list1:
                 del list1[list1.index(val)]
         return list1
+
+    def getMatchedPeople(actual_people, predict_people):
+        matchedPeople = []
+        for actual_person in actual_people:
+            iou_list = []
+            for predict_person in predict_people:
+                if Util.getIOU(actual_person['box'], predict_person['box']) > 0.5:
+                    iou_list.append(Util.getIOU(actual_person['box'], predict_person['box']))
+            if len(iou_list) > 0:
+                # people detected and should reject improper person
+                matchedPeople.append(predict_people[iou_list.index(max(iou_list))])
+                del predict_people[iou_list.index(max(iou_list))]
+            else:
+                # No one detected
+                matchedPeople.append(-1)
+
+        return matchedPeople
 
     def drawBBox(image, person_list):
         for person in person_list:
