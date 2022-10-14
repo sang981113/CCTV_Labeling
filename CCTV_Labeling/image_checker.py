@@ -58,15 +58,15 @@ class ImageChecker(QMainWindow):
         self.image_label.setPixmap(QtGui.QPixmap(self.default_image_pixmap))
         self.main_layout.addWidget(self.image_label, 0, QtCore.Qt.AlignCenter)
 
-    def setStatusBar(self, file, index):
+    def setStatusBar(self, file_list, index):
         self.lbl_folder_path.show()
-        self.lbl_folder_path_value.setText(file.folder_path)
+        self.lbl_folder_path_value.setText(file_list[index].folder_path)
         self.lbl_folder_path_value.show()
         self.lbl_file_name.show()
-        self.lbl_file_name_value.setText(file.file_name)
+        self.lbl_file_name_value.setText(file_list[index].file_name)
         self.lbl_file_name_value.show()
         self.lbl_index.show()
-        self.lbl_index_value.setText(str(index+1))
+        self.lbl_index_value.setText(str(index+1) + '/' + str(len(file_list)))
         self.lbl_index_value.show()
 
     def openFolder(self, folder_path):
@@ -79,7 +79,7 @@ class ImageChecker(QMainWindow):
             QMessageBox.warning(self, '알림', '폴더에 사진이 없습니다.')
         else:
             self.image_label.setPixmap(self.readImage(file_list[index]).scaledToWidth(1600))
-            self.setStatusBar(file_list[index], index)
+            self.setStatusBar(file_list, index)
 
     def readImage(self, file):
         image = cv2.imread(os.path.join(file.folder_path, file.file_name))
@@ -140,13 +140,15 @@ class Folder():
             file_list = os.listdir(folder_path)
         except FileNotFoundError:
             return []
-        
+        image_list = []
         for file_name in file_list:
             _, file_ext =  os.path.splitext(file_name)
             if file_ext != '.jpg':
                 continue
             file_name = File(folder_path, file_name)
-            self.file_list.append(file_name)
+            image_list.append(file_name)
+        
+        self.file_list = sorted(image_list, key = lambda file : file.file_name)
 
 class File():
     def __init__(self, folder_path, file_name) -> None:
