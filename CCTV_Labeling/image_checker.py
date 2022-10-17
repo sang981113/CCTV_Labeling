@@ -51,7 +51,7 @@ class ImageChecker(QMainWindow):
         self.menubar = self.menuBar()
         self.menu_open = self.menubar.addMenu("파일")
         self.menu_open_folder = QAction("폴더 열기", self)
-        self.menu_open_folder.triggered.connect(lambda: self.openFolder(str(QFileDialog.getExistingDirectory(self, "이미지 폴더 불러오기"))))
+        self.menu_open_folder.triggered.connect(lambda: self.openFolder())
         self.menu_open.addAction(self.menu_open_folder)
 
         self.image_label = QLabel()
@@ -69,9 +69,11 @@ class ImageChecker(QMainWindow):
         self.lbl_index_value.setText(str(index+1) + '/' + str(len(file_list)))
         self.lbl_index_value.show()
 
-    def openFolder(self, folder_path):
+    def openFolder(self):
+        folder_path = str(QFileDialog.getExistingDirectory(self, "이미지 폴더 불러오기"))
         self.folder.updateFiles(folder_path)
         self.showImage(self.folder.file_list, 0)
+        self.index = 0
 
     def showImage(self, file_list, index):
         if len(file_list) == 0:
