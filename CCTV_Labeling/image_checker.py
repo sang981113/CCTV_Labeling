@@ -1,4 +1,5 @@
 import os
+import shutil
 import sys
 import cv2
 
@@ -11,10 +12,14 @@ class ImageChecker(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.index = 0
+        self.event_stack = []
+        self.delete_stack = []
+        self.save_stack = []
         self.window_size = QtCore.QSize(1920, 1080)
         self.default_image_pixmap = QtGui.QImage(1600, 900, QtGui.QImage.Format_RGB888)
         self.default_image_pixmap.fill(QtGui.qRgb(255, 255, 255))
-        self.folder = Folder()
+        self.image_folder = Folder()
+        self.save_folder = Folder()
         self.initView()
         self.show()
         
@@ -51,8 +56,11 @@ class ImageChecker(QMainWindow):
         self.menubar = self.menuBar()
         self.menu_open = self.menubar.addMenu("파일")
         self.menu_open_folder = QAction("폴더 열기", self)
-        self.menu_open_folder.triggered.connect(lambda: self.openFolder())
+        self.menu_open_folder.triggered.connect(lambda: self.updateImageFolder(self.image_folder, str(QFileDialog.getExistingDirectory(self, "이미지 폴더 불러오기"))))
         self.menu_open.addAction(self.menu_open_folder)
+        self.menu_open_save_folder = QAction("저장 폴더 지정", self)
+        self.menu_open_save_folder.triggered.connect(lambda: self.openSaveFolder(self.save_folder))
+        self.menu_open.addAction(self.menu_open_save_folder)
 
         self.image_label = QLabel()
         self.image_label.setPixmap(QtGui.QPixmap(self.default_image_pixmap))
@@ -69,11 +77,17 @@ class ImageChecker(QMainWindow):
         self.lbl_index_value.setText(str(index+1) + '/' + str(len(file_list)))
         self.lbl_index_value.show()
 
-    def openFolder(self):
-        folder_path = str(QFileDialog.getExistingDirectory(self, "이미지 폴더 불러오기"))
-        self.folder.updateFiles(folder_path)
-        self.showImage(self.folder.file_list, 0)
+    def updateImageFolder(self, image_folder, folder_path):
+        image_folder.updateFiles(folder_path)
+        self.showImage(image_folder.file_list, 0)
         self.index = 0
+        self.event_stack = []
+        self.delete_stack = []
+        self.save_stack = []
+
+    def openSaveFolder(self, folder):
+        folder_path = str(QFileDialog.getExistingDirectory(self, "복사 폴더 불러오기"))
+        folder.folder_path = folder_path
 
     def showImage(self, file_list, index):
         if len(file_list) == 0:
@@ -97,41 +111,97 @@ class ImageChecker(QMainWindow):
         except:
             QMessageBox.warning(self, '오류', '사진 삭제에 실패했습니다.')
         file_list = file_list[:index] + file_list[index + 1:]
-        self.folder.file_list = file_list
+        self.image_folder.file_list = file_list
         if index >= len(file_list):
-            # self.showImage(file_list[len(file_list) - 1], len(file_list) - 1)
-            self.prevAction(file_list, len(file_list))
+            self.index = len(file_list)-1
+            self.showImage(file_list, len(file_list)-1)
         else:
             self.showImage(file_list, index)
 
+    def copyImage(self, file_list, index, save_folder):
+        if save_folder.folder_path == "":
+            QMessageBox.warning(self, '알림', '복사할 폴더를 선택해주세요.')
+            self.openSaveFolder(save_folder)
+        try:
+            shutil.copyfile(os.path.join(file_list[index].folder_path, file_list[index].file_name), os.path.join(save_folder.folder_path, file_list[index].file_name))
+        except:
+            QMessageBox.warning(self, '오류', '사진 복사에 실패했습니다.')
+
     def prevAction(self, file_list, index):
-        if index > 0:
-            self.showImage(file_list, index - 1)
-            self.index -= 1
+        self.showImage(file_list, index - 1)
 
     def nextAction(self, file_list, index):
-        if index < len(file_list) - 1:
-            self.showImage(file_list, index + 1)
-            self.index += 1
+        self.showImage(file_list, index + 1)
 
     def deleteAction(self, file_list, index):
         self.removeImage(file_list, index)
+
+    def copyAction(self, file_list, index, save_folder):
+        self.copyImage(file_list, index, save_folder)
+
+    def undoAction(self, file_list, index, save_folder, event_stack, delete_stack, save_stack):
+        if not event_stack:
+            return
+
+        past_event = event_stack.pop()
+        if past_event == QtCore.Qt.Key_Left:
+            if self.index < len(self.image_folder.file_list) - 1:
+                self.nextAction(self.image_folder.file_list, self.index)
+                self.index += 1
+        elif past_event == QtCore.Qt.Key_Right:
+            if self.index > 0:
+                self.prevAction(self.image_folder.file_list, self.index)
+                self.index -= 1
+        elif past_event == QtCore.Qt.Key_D or past_event == QtCore.Qt.Key_Delete:
+            file, image = delete_stack.pop()
+            cv2.imwrite(os.path.join(file.folder_path, file.file_name), image)
+            file_list.append(file)
+            file_list.sort(key= lambda file: file.file_name)
+            self.index = file_list.index(file)
+            self.showImage(file_list, file_list.index(file))
+        elif past_event == QtCore.Qt.Key_S or past_event == QtCore.Qt.Key_Insert:
+            file = save_stack.pop()
+            save_folder.set_file_list(save_folder.folder_path)
+            if os.path.isfile(os.path.join(save_folder.folder_path, file.file_name)):
+                os.remove(os.path.join(save_folder.folder_path, file.file_name))
 
     def keyPressEvent(self, e):
         if e.key() == QtCore.Qt.Key_Escape:
             self.close()
         elif e.key() == QtCore.Qt.Key_Left:
-            self.prevAction(self.folder.file_list, self.index)
+            if self.index > 0:
+                self.prevAction(self.image_folder.file_list, self.index)
+                self.index -= 1
+                self.event_stack.append(e.key())
         elif e.key() == QtCore.Qt.Key_Right:
-            self.nextAction(self.folder.file_list, self.index)
-        elif e.key() == QtCore.Qt.Key_D:
-            self.deleteAction(self.folder.file_list, self.index)
-
+            if self.index < len(self.image_folder.file_list) - 1:
+                self.nextAction(self.image_folder.file_list, self.index)
+                self.index += 1
+                self.event_stack.append(e.key())
+        elif e.key() == QtCore.Qt.Key_D or e.key() == QtCore.Qt.Key_Delete:
+            delete_image = cv2.imread(os.path.join(self.image_folder.file_list[self.index].folder_path, self.image_folder.file_list[self.index].file_name))
+            self.delete_stack.append((self.image_folder.file_list[self.index], delete_image))
+            self.event_stack.append(e.key())
+            try:
+                self.deleteAction(self.image_folder.file_list, self.index)
+            except:
+                self.delete_stack.pop()
+                self.event_stack.pop()
+        elif e.key() == QtCore.Qt.Key_S or e.key() == QtCore.Qt.Key_Insert:
+            self.save_stack.append(self.image_folder.file_list[self.index])
+            self.event_stack.append(e.key())
+            try:
+                self.copyAction(self.image_folder.file_list, self.index, self.save_folder)
+            except:
+                self.save_stack.pop()
+                self.event_stack.pop()
+        elif e.key() == QtCore.Qt.Key_R:
+            self.undoAction(self.image_folder.file_list, self.index, self.save_folder, self.event_stack, self.delete_stack, self.save_stack)
 
 class Folder():
-    def __init__(self) -> None:
-        self.folder_path = ""
-        self.file_list = []
+    def __init__(self, folder_path = "", file_list = []) -> None:
+        self.folder_path = folder_path
+        self.file_list = file_list
     
     def updateFiles(self, folder_path):
         self.folder_path = folder_path
