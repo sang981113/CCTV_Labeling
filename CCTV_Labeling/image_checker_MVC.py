@@ -70,8 +70,8 @@ class ImageCheckerController():
         self.folder = Folder()
         self.folder.save_folder = Folder("", [], 0, [], Folder())
 
-        self._view.menu_open_folder.triggered.connect(lambda: self.openFolder(self.folder))
-        self._view.menu_open_save_folder.triggered.connect(lambda: self.openSaveFolder(self.folder))
+        self._view.menu_open_folder.triggered.connect(lambda: self.open_folder(self.folder))
+        self._view.menu_open_save_folder.triggered.connect(lambda: self.open_save_folder(self.folder))
         self._view.key_event_signal.connect(self.key_press_event)
 
     # for pytest
@@ -84,21 +84,21 @@ class ImageCheckerController():
         elif key == QtCore.Qt.Key_Left:
             if self.folder.index > 0:
                 self.folder.index -= 1
-                self.showImage(self.folder)
+                self.show_image(self.folder)
         elif key == QtCore.Qt.Key_Right:
             if self.folder.index < len(self.folder.file_list) - 1:
                 self.folder.index += 1
-                self.showImage(self.folder)
+                self.show_image(self.folder)
         elif key == QtCore.Qt.Key_D:
-            self.deleteImage(self.folder)
+            self.delete_image(self.folder)
         elif key == QtCore.Qt.Key_R:
-            self.cancelDelete(self.folder)
+            self.cancel_delete(self.folder)
         elif key == QtCore.Qt.Key_S:
-            self.saveImage(self.folder)
+            self.save_image(self.folder)
         elif key == QtCore.Qt.Key_E:
-            self.cancelSave(self.folder)
+            self.cancel_save(self.folder)
 
-    def setStatusBar(self, folder):
+    def set_status_bar(self, folder):
         if len(folder.file_list) == 0:
             self._view.lbl_folder_path.hide()
             self._view.lbl_folder_path_value.hide()
@@ -117,9 +117,9 @@ class ImageCheckerController():
             self._view.lbl_index.show()
             self._view.lbl_index_value.setText(str(folder.index+1) + '/' + str(len(folder.file_list)))
             self._view.lbl_index_value.show()
-            self.setIsCopiedLabel(folder)
+            self.set_iscopied_label(folder)
 
-    def setIsCopiedLabel(self, folder):
+    def set_iscopied_label(self, folder):
         self._view.lbl_iscopied.setText('')
         for save_file in folder.save_folder.file_list:
             if folder.file_list[folder.index].file_name == save_file.file_name:
@@ -127,39 +127,39 @@ class ImageCheckerController():
                 break
         self._view.lbl_iscopied.show()
 
-    def openFolder(self, folder):
+    def open_folder(self, folder):
         folder_path = str(QFileDialog.getExistingDirectory(self._view, "이미지 폴더 불러오기"))
         folder.updateFiles(folder_path)
-        self.showImage(folder)
+        self.show_image(folder)
 
-    def openSaveFolder(self, folder):
+    def open_save_folder(self, folder):
         folder_path = str(QFileDialog.getExistingDirectory(self._view, "저장 폴더 불러오기"))
         save_folder = Folder()
         save_folder.updateFiles(folder_path)
         folder.save_folder = save_folder
-        self.setIsCopiedLabel(folder)
+        self.set_iscopied_label(folder)
 
-    def showImage(self, folder):
+    def show_image(self, folder):
         if len(folder.file_list) == 0:
             self._view.image_label.setPixmap(QtGui.QPixmap(self._view.default_image_pixmap))
             QMessageBox.information(self._view, '알림', '폴더에 사진이 없습니다.')
         else:
-            self._view.image_label.setPixmap(self.readImage(folder).scaledToWidth(1600))
-        self.setStatusBar(folder)
+            self._view.image_label.setPixmap(self.read_image(folder).scaledToWidth(1600))
+        self.set_status_bar(folder)
 
-    def readImage(self, folder):
+    def read_image(self, folder):
         try:
             image = cv2.imread(os.path.join(folder.folder_path, folder.file_list[folder.index].file_name))
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         except:
             QMessageBox.warning(self._view, '오류', '사진을 가져오지 못했습니다.')
             return self._view.default_image_pixmap
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image_height, image_width, image_bytesPerPixel = image.shape
         image_Qimage = QtGui.QImage(image.data, image_width, image_height, image_width * image_bytesPerPixel, QtGui.QImage.Format_RGB888)
         image_pixmap = QtGui.QPixmap.fromImage(image_Qimage)
         return image_pixmap
 
-    def deleteImage(self, folder):
+    def delete_image(self, folder):
         delete_image = cv2.imread(os.path.join(folder.folder_path, folder.file_list[folder.index].file_name))
         folder.delete_backup.append((folder.file_list[folder.index], delete_image))
         try:
@@ -171,11 +171,11 @@ class ImageCheckerController():
         folder.file_list = folder.file_list[:folder.index] + folder.file_list[folder.index + 1:]
         if folder.index >= len(folder.file_list):
             folder.index -= 1
-            self.showImage(folder)
+            self.show_image(folder)
         else:
-            self.showImage(folder)
+            self.show_image(folder)
 
-    def cancelDelete(self, folder):
+    def cancel_delete(self, folder):
         if len(folder.delete_backup) <= 0:
             return
         file, image = folder.delete_backup.pop()
@@ -183,20 +183,21 @@ class ImageCheckerController():
         folder.file_list.append(file)
         folder.file_list.sort(key = lambda file: file.file_name)
         folder.index = folder.file_list.index(file)
-        self.showImage(folder)
+        self.show_image(folder)
 
-    def saveImage(self, folder):
+    def save_image(self, folder):
         if folder.save_folder.folder_path == "":
             QMessageBox.information(self._view, '알림', '저장할 폴더를 선택해주세요.')
-            self.openSaveFolder(folder)
+            self.open_save_folder(folder)
         try:
             shutil.copyfile(os.path.join(folder.folder_path, folder.file_list[folder.index].file_name), os.path.join(folder.save_folder.folder_path, folder.file_list[folder.index].file_name))
-            folder.save_folder.file_list.append(folder.file_list[folder.index])
+            if not folder.file_list[folder.index] in folder.save_folder.file_list:
+                folder.save_folder.file_list.append(folder.file_list[folder.index])
         except:
             QMessageBox.warning(self._view, '오류', '사진 저장에 실패했습니다.')
-        self.setIsCopiedLabel(folder)
+        self.set_iscopied_label(folder)
 
-    def cancelSave(self, folder):
+    def cancel_save(self, folder):
         if len(folder.save_folder.file_list) <= 0:
             return
         try:
@@ -209,13 +210,12 @@ class ImageCheckerController():
         for file in folder.save_folder.file_list:
             if file.file_name == folder.file_list[folder.index].file_name:
                 del folder.save_folder.file_list[folder.save_folder.file_list.index(file)]
-        self.setIsCopiedLabel(folder)
+        self.set_iscopied_label(folder)
 
     def run(self):
         self._view.setFocus()
         self._view.show()
         self._app.exec_()
-
 
 class Folder():
     def __init__(self, folder_path = "", file_list = [], index = 0, delete_backup = [], save_folder = None) -> None:
