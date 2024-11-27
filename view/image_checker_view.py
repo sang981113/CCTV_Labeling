@@ -7,12 +7,12 @@ class ImageCheckerView(QMainWindow):
     def __init__(self, APP_NAME):
         super().__init__()
         # self.window_size = QtCore.QSize(1920, 1080)
-        self.default_image_pixmap = QtGui.QImage(1600, 900, QtGui.QImage.Format_RGB888)
+        self._available_geometry = QDesktopWidget().availableGeometry()
+        self.default_image_pixmap = QtGui.QImage(self._available_geometry.width() * 0.9, self._available_geometry.height() * 0.9, QtGui.QImage.Format_RGB888)
         self.default_image_pixmap.fill(QtGui.qRgb(255, 255, 255))
 
         self.setWindowTitle(APP_NAME)
         # self.resize(self.window_size)
-        self.showMaximized()
 
         self.menubar = self.menuBar()
         self.menu_open = self.menubar.addMenu("파일")
@@ -52,6 +52,8 @@ class ImageCheckerView(QMainWindow):
         self.statusbar.addWidget(self.lbl_index)
         self.statusbar.addWidget(self.lbl_index_value)
         self.statusbar.addWidget(self.lbl_iscopied)
+
+        self.showMaximized()
 
     def keyPressEvent(self, e):
         self.key_event_signal.emit(e.key())

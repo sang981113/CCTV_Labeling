@@ -14,6 +14,7 @@ APP_NAME = "이미지 확인"
 class ImageCheckerController():
     def __init__(self) -> None:
         self._app = QApplication(sys.argv)
+        self._available_geometry = QDesktopWidget().availableGeometry()
         self._view = ImageCheckerView(APP_NAME)
         self.folder = Folder()
         self.folder.save_folder = Folder("", [], 0, [], Folder())
@@ -92,7 +93,11 @@ class ImageCheckerController():
             self._view.image_label.setPixmap(QtGui.QPixmap(self._view.default_image_pixmap))
             QMessageBox.information(self._view, '알림', '폴더에 사진이 없습니다.')
         else:
-            self._view.image_label.setPixmap(self.read_image(folder).scaledToWidth(1600))
+            pixmap = self.read_image(folder)
+            if self._available_geometry.width() / self._available_geometry.height() < pixmap.width() / pixmap.height():
+                self._view.image_label.setPixmap(pixmap.scaledToWidth(self._available_geometry.width() * 0.9))
+            else:
+                self._view.image_label.setPixmap(pixmap.scaledToHeight(self._available_geometry.height() * 0.9))
         self.set_status_bar(folder)
 
     def read_image(self, folder):
